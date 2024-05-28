@@ -1,49 +1,40 @@
-use ndarray::prelude::*;
+use plotters::prelude::*;
+use std::error::Error;
 
-fn main() {
-    let x = array![1.0, 2.0, 3.0];
-    let y = array![2.0, 4.0, 6.0];
-    println!("a");
-    println!("{:?}", x + y);
-    let x = array![1.0, 2.0, 3.0];
-    let y = array![2.0, 4.0, 6.0];
-    println!("{:?}", x - y);
-    let x = array![1.0, 2.0, 3.0];
-    let y = array![2.0, 4.0, 6.0];
-    println!("{:?}", x * y);
-    let x = array![1.0, 2.0, 3.0];
-    let y = array![2.0, 4.0, 6.0];
-    println!("{:?}", x / y);
+fn main() -> Result<(), Box<dyn Error>> {
+    let root = BitMapBackend::new("images/0.png", (640, 480)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let x_min = 0f32;
+    let x_max = 6.0f32;
+    let y_min = -1.0f32;
+    let y_max = 1.0f32;
+    let x_iter = (0..=1200).map(|x| x as f32 / 200.0);
+    let mut chart = ChartBuilder::on(&root)
+        .caption("y=sin(x)&cos(x)", ("Arial", 50).into_font())
+        .margin(5)
+        .x_label_area_size(30)
+        .y_label_area_size(30)
+        .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
+    chart.configure_mesh().draw()?;
+    let sin_iter = x_iter.clone().map(|x| x.sin());
+    let x_sin_iter = x_iter.zip(sin_iter);
+    chart
+        .draw_series(LineSeries::new(x_sin_iter, &RED))?
+        .label("y = sin(x)")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+    let x_iter = (0..=1200).map(|x| x as f32 / 200.0);
+    let cos_iter = x_iter.clone().map(|x| x.cos());
+    let x_cos_iter = x_iter.zip(cos_iter);
+    chart
+        .draw_series(LineSeries::new(x_cos_iter, &BLUE))?
+        .label("y = cos(x)")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+    chart
+        .configure_series_labels()
+        .background_style(&WHITE.mix(0.8))
+        .border_style(&BLACK)
+        .draw()?;
+    root.present()?;
 
-    let mut x = array![1.0, 2.0, 3.0];
-    x /= 2.0;
-    println!("{:?}", x);
-
-    let a = array![[1, 2], [3, 4]];
-    println!("{:?}", a);
-    println!("{:?}", a.shape());
-
-    let b = array![[3, 0], [0, 6]];
-    println!("{:?}", a + b);
-    let a = array![[1, 2], [3, 4]];
-    let b = array![[3, 0], [0, 6]];
-    println!("{:?}", a * b);
-    let a = array![[1, 2], [3, 4]];
-    println!("{:?}", a * 10);
-
-    let a = array![[1, 2], [3, 4]];
-    let b = array![10, 20];
-    println!("{:?}", a * b);
-
-    let x = array![[51, 55], [14, 19], [0, 4]];
-    println!("{:?}", x);
-    println!("{:?}", x.slice(s![0, ..]));
-    println!("{:?}", x[[0, 1]]);
-
-    for row in x.outer_iter() {
-        println!("{:?}", row);
-    }
-
-    let x = Array::from_iter(x.iter());
-    println!("{:?}", x);
+    Ok(())
 }
