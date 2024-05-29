@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 ndarray="0.15.6"
 plotters = "0.3.3"
+mnist = "0.6.0"

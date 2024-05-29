@@ -1,5 +1,5 @@
-use ndarray::{prelude::*, stack};
-use plotters::prelude::*;
+mod mnist;
+use ndarray::prelude::*;
 
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -72,25 +72,5 @@ fn forward(network: &Network, x: ArrayView2<f64>) -> Array2<f64> {
 }
 
 fn main() {
-    let a = array![0.3, 2.9, 4.0];
-    let y = softmax(a.view());
-    println!("y: {:?}", y);
-    println!("{}", separator());
-    let a = array![1010.0, 1000.0, 990.0];
-    let y = softmax(a.view());
-    println!("y: {:?}", y);
-    println!("{}", separator());
-    let network = init_network();
-    // let x = array![1.0, 0.5];
-    // let y = forward(&network, x.view());
-    // println!("y: {:?}", y);
-    // println!("{}", separator());
-    // let x = array![0.1, 0.2];
-    // let y = forward(&network, x.view());
-    // println!("y: {:?}", y);
-    // println!("{}", separator());
-    let x = array![[1.0, 0.5], [0.1, 0.2]];
-    let y = forward(&network, x.view());
-    println!("y: {:?}", y);
-    println!("{}", separator());
+    let (train_data, trn_lbl, validation_data, val_lbl) = mnist::load_mnist::load_mnist(None, None);
 }
