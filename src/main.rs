@@ -1,5 +1,5 @@
 mod mnist;
-use ndarray::prelude::*;
+use ndarray::{concatenate, prelude::*};
 
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -71,6 +71,31 @@ fn forward(network: &Network, x: ArrayView2<f64>) -> Array2<f64> {
     (network.act3)(a3.view())
 }
 
+fn cross_entropy_error(y: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
+    let delta = 1e-7;
+    let batch_size = y.shape()[0] as f64;
+    let log_y = y.mapv(|y| (y + delta).ln());
+    -(log_y * &t).sum() / batch_size
+}
+
 fn main() {
     let (train_data, trn_lbl, validation_data, val_lbl) = mnist::load_mnist::load_mnist(None, None);
+
+    let t1 = array![[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+    let y1 = array![[0.1, 0.05, 0.6, 0.0, 0.05, 0.1, 0.0, 0.1, 0.0, 0.0]];
+    let error1 = cross_entropy_error(y1.view(), t1.view());
+    println!("{}", error1);
+    println!("{}", separator());
+
+    let t2 = array![[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+    let y2 = array![[0.1, 0.05, 0.1, 0.0, 0.05, 0.1, 0.0, 0.6, 0.0, 0.0],];
+    let error2 = cross_entropy_error(y2.view(), t2.view());
+    println!("{}", error2);
+    println!("{}", separator());
+
+    let t = concatenate(Axis(0), &[t1.view(), t2.view()]).unwrap();
+    let y = concatenate(Axis(0), &[y1.view(), y2.view()]).unwrap();
+    let error = cross_entropy_error(y.view(), t.view());
+    println!("{}", error);
+    println!("{}", (error1 + error2) / 2.0);
 }
