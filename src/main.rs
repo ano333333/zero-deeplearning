@@ -1,5 +1,6 @@
 mod mnist;
-use ndarray::{concatenate, prelude::*};
+use ndarray::{prelude::*, NdIndex};
+use ndarray_rand::{rand_distr::Uniform, RandomExt};
 
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -53,15 +54,6 @@ fn init_network() -> Network {
     }
 }
 
-// fn forward(network: &Network, x: ArrayView1<f64>) -> Array1<f64> {
-//     let a1 = x.dot(&network.w1) + &network.b1;
-//     let z1 = sigmoid(a1.view());
-//     let a2 = z1.dot(&network.w2) + &network.b2;
-//     let z2 = sigmoid(a2.view());
-//     let a3 = z2.dot(&network.w3) + &network.b3;
-//     identity_function(a3.view())
-// }
-
 fn forward(network: &Network, x: ArrayView2<f64>) -> Array2<f64> {
     let a1 = x.dot(&network.w1) + &network.b1;
     let z1 = (network.act1)(a1.view());
@@ -78,24 +70,56 @@ fn cross_entropy_error(y: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
     -(log_y * &t).sum() / batch_size
 }
 
+fn numerical_gradient<D: Dimension>(
+    f: fn(ArrayView<f64, D>) -> f64,
+    x: ArrayView<f64, D>,
+) -> Array<f64, D>
+where
+    <D as ndarray::Dimension>::Pattern: NdIndex<D>,
+{
+    let h = 1e-4;
+    let mut grad = Array::<f64, D>::zeros(x.raw_dim());
+    let mut x_mut = x.to_owned();
+    for iter in x.indexed_iter() {
+        x_mut[iter.0.clone()] = iter.1 + h;
+        let fxh1 = f(x_mut.view());
+        x_mut[iter.0.clone()] = iter.1 - h;
+        let fxh2 = f(x_mut.view());
+        grad[iter.0.clone()] = (fxh1 - fxh2) / (2.0 * h);
+    }
+    grad
+}
+
+struct SimpleNet {
+    w: Array2<f64>,
+}
+
+impl SimpleNet {
+    fn new() -> Self {
+        SimpleNet {
+            w: Array::random((2, 3), Uniform::new(0.0, 1.0)),
+        }
+    }
+    fn predict(&self, x: ArrayView2<f64>) -> Array2<f64> {
+        x.dot(&self.w)
+    }
+    fn loss(&self, x: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
+        let z = self.predict(x);
+        let y = softmax(z.view());
+        cross_entropy_error(y.view(), t)
+    }
+}
+
 fn main() {
-    let (train_data, trn_lbl, validation_data, val_lbl) = mnist::load_mnist::load_mnist(None, None);
-
-    let t1 = array![[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
-    let y1 = array![[0.1, 0.05, 0.6, 0.0, 0.05, 0.1, 0.0, 0.1, 0.0, 0.0]];
-    let error1 = cross_entropy_error(y1.view(), t1.view());
-    println!("{}", error1);
+    let net = SimpleNet::new();
+    println!("{:?}", net.w);
     println!("{}", separator());
 
-    let t2 = array![[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
-    let y2 = array![[0.1, 0.05, 0.1, 0.0, 0.05, 0.1, 0.0, 0.6, 0.0, 0.0],];
-    let error2 = cross_entropy_error(y2.view(), t2.view());
-    println!("{}", error2);
+    let x = array![[0.6, 0.9]];
+    let p = net.predict(x.view());
+    println!("{:?}", p);
     println!("{}", separator());
 
-    let t = concatenate(Axis(0), &[t1.view(), t2.view()]).unwrap();
-    let y = concatenate(Axis(0), &[y1.view(), y2.view()]).unwrap();
-    let error = cross_entropy_error(y.view(), t.view());
-    println!("{}", error);
-    println!("{}", (error1 + error2) / 2.0);
+    let t = array![[0.0, 0.0, 1.0]];
+    println!("{}", net.loss(x.view(), t.view()));
 }
