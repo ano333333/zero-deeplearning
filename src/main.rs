@@ -1,6 +1,12 @@
 mod mnist;
+
 use ndarray::{prelude::*, NdIndex};
-use ndarray_rand::{rand_distr::Uniform, RandomExt};
+use ndarray_rand::{
+    rand::{self, seq::IteratorRandom},
+    rand_distr::{num_traits::SaturatingMul, Uniform},
+    RandomExt,
+};
+use plotters::style::WHITE;
 
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -23,9 +29,23 @@ fn identity_function<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
 }
 
 fn softmax<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
-    let max = x.fold(0.0 / 0.0, |acc, &x| x.max(acc));
+    let max = x.fold(-1.0 / 0.0, |acc, &x| x.max(acc));
     let c = x.mapv(|x| (x - max).exp()).sum();
     x.mapv(|x| (x - max).exp() / c)
+}
+
+// 行ごとにsoftmaxを計算する
+fn softmax_2(x: ArrayView2<f64>) -> Array2<f64> {
+    let max = x.map_axis(Axis(1), |row| row.fold(-1.0 / 0.0, |acc, &x| x.max(acc)));
+    let max = Array2::<f64>::from_shape_fn(x.raw_dim(), |(i, _)| max[i]);
+    let x = x.to_owned() - &max;
+    let x = x.mapv(|x| x.exp());
+    let sum = x
+        .axis_iter(Axis(0))
+        .map(|row| row.sum())
+        .collect::<Array1<f64>>();
+    let sum = Array2::<f64>::from_shape_fn(x.raw_dim(), |(i, _)| sum[i]);
+    x / &sum
 }
 
 struct Network {
@@ -71,21 +91,26 @@ fn cross_entropy_error(y: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
 }
 
 fn numerical_gradient<D: Dimension>(
-    f: fn(ArrayView<f64, D>) -> f64,
+    f: &dyn Fn(ArrayView<f64, D>) -> f64,
     x: ArrayView<f64, D>,
 ) -> Array<f64, D>
 where
     <D as ndarray::Dimension>::Pattern: NdIndex<D>,
 {
-    let h = 1e-4;
+    // let h = 1e-4;
+    let h = 1.0;
     let mut grad = Array::<f64, D>::zeros(x.raw_dim());
     let mut x_mut = x.to_owned();
     for iter in x.indexed_iter() {
+        println!("{:?}", iter);
         x_mut[iter.0.clone()] = iter.1 + h;
         let fxh1 = f(x_mut.view());
         x_mut[iter.0.clone()] = iter.1 - h;
         let fxh2 = f(x_mut.view());
         grad[iter.0.clone()] = (fxh1 - fxh2) / (2.0 * h);
+        println!("fxh1: {}, fxh2: {}", fxh1, fxh2);
+        println!("grad[iter.0.clone()]: {}", grad[iter.0.clone()]);
+        x_mut[iter.0.clone()] = *iter.1;
     }
     grad
 }
@@ -110,16 +135,163 @@ impl SimpleNet {
     }
 }
 
+fn argmax<D: Dimension>(x: ArrayView<f64, D>) -> <D as Dimension>::Pattern
+where
+    <D as ndarray::Dimension>::Pattern: NdIndex<D>,
+{
+    let mut max_index: Option<<D as Dimension>::Pattern> = None;
+    for iter in x.indexed_iter() {
+        match max_index {
+            None => max_index = Some(iter.0),
+            Some(ref index) => {
+                if *iter.1 > x[index.clone()] {
+                    max_index = Some(iter.0);
+                }
+            }
+        }
+    }
+    max_index.unwrap()
+}
+
+#[derive(Clone)]
+struct TwoLayerNet {
+    w1: Array2<f64>,
+    b1: Array1<f64>,
+    z1: fn(ArrayView2<f64>) -> Array2<f64>,
+    w2: Array2<f64>,
+    b2: Array1<f64>,
+    y: fn(ArrayView2<f64>) -> Array2<f64>,
+}
+
+struct TwoLayerNetGradient {
+    dw1: Array2<f64>,
+    db1: Array1<f64>,
+    dw2: Array2<f64>,
+    db2: Array1<f64>,
+}
+
+impl TwoLayerNet {
+    fn new(input_size: usize, hidden_size: usize, output_size: usize) -> Self {
+        TwoLayerNet {
+            w1: Array::random((input_size, hidden_size), Uniform::new(-10.0, 10.0)),
+            b1: Array::random(hidden_size, Uniform::new(-10.0, 10.0)),
+            z1: sigmoid,
+            w2: Array::random((hidden_size, output_size), Uniform::new(-10.0, 10.0)),
+            b2: Array::random(output_size, Uniform::new(-10.0, 10.0)),
+            y: softmax_2,
+        }
+    }
+    fn predict(&self, x: ArrayView2<f64>) -> Array2<f64> {
+        let a1 = x.dot(&self.w1) + &self.b1;
+        let z1 = (self.z1)(a1.view());
+        let a2 = z1.dot(&self.w2) + &self.b2;
+        (self.y)(a2.view())
+    }
+    fn loss(&self, x: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
+        let y = self.predict(x);
+        cross_entropy_error(y.view(), t)
+    }
+    fn accuracy(&self, x: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
+        let y = self.predict(x);
+        let y = y.map_axis(Axis(1), argmax);
+        let t = t.map_axis(Axis(1), argmax);
+        let batch_size = x.shape()[0] as f64;
+        let correct = y.iter().zip(t.iter()).filter(|(y, t)| y == t).count() as f64;
+        correct / batch_size
+    }
+    fn numerical_gradient(&self, x: ArrayView2<f64>, t: ArrayView2<f64>) -> TwoLayerNetGradient {
+        let h = 1.0e-4;
+        let mut grad = TwoLayerNetGradient {
+            dw1: Array::zeros(self.w1.raw_dim()),
+            db1: Array::zeros(self.b1.raw_dim()),
+            dw2: Array::zeros(self.w2.raw_dim()),
+            db2: Array::zeros(self.b2.raw_dim()),
+        };
+        let mut copy = self.clone();
+        for iter in self.w1.indexed_iter() {
+            copy.w1[iter.0] += h;
+            let loss1 = copy.loss(x, t);
+            copy.w1[iter.0] -= 2.0 * h;
+            let loss2 = copy.loss(x, t);
+            copy.w1[iter.0] += h;
+            grad.dw1[iter.0] = (loss1 - loss2) / (2.0 * h);
+        }
+        for iter in self.b1.indexed_iter() {
+            copy.b1[iter.0] += h;
+            let loss1 = copy.loss(x, t);
+            copy.b1[iter.0] -= 2.0 * h;
+            let loss2 = copy.loss(x, t);
+            copy.b1[iter.0] += h;
+            grad.db1[iter.0] = (loss1 - loss2) / (2.0 * h);
+        }
+        for iter in self.w2.indexed_iter() {
+            copy.w2[iter.0] += h;
+            let loss1 = copy.loss(x, t);
+            copy.w2[iter.0] -= 2.0 * h;
+            let loss2 = copy.loss(x, t);
+            copy.w2[iter.0] += h;
+            grad.dw2[iter.0] = (loss1 - loss2) / (2.0 * h);
+        }
+        for iter in self.b2.indexed_iter() {
+            copy.b2[iter.0] += h;
+            let loss1 = copy.loss(x, t);
+            copy.b2[iter.0] -= 2.0 * h;
+            let loss2 = copy.loss(x, t);
+            copy.b2[iter.0] += h;
+            grad.db2[iter.0] = (loss1 - loss2) / (2.0 * h);
+        }
+        grad
+    }
+}
+
 fn main() {
-    let net = SimpleNet::new();
-    println!("{:?}", net.w);
-    println!("{}", separator());
+    let (x_train, t_train, x_test, t_test) = mnist::load_mnist::load_mnist(None, None);
+    let iters_num = 500;
+    let x_train_num = x_train.shape()[0];
+    let batch_size = 100;
+    let final_learning_rate = 0.1;
 
-    let x = array![[0.6, 0.9]];
-    let p = net.predict(x.view());
-    println!("{:?}", p);
-    println!("{}", separator());
+    let indexes = (0..x_train_num).collect::<Vec<usize>>();
+    let mut rng = rand::thread_rng();
 
-    let t = array![[0.0, 0.0, 1.0]];
-    println!("{}", net.loss(x.view(), t.view()));
+    let mut network = TwoLayerNet::new(28 * 28, 50, 10);
+
+    for i in 0..iters_num {
+        println!("count: {}", i);
+        let batch_mask = indexes
+            .iter()
+            .choose_multiple(&mut rng, batch_size)
+            .iter()
+            .map(|&i| *i)
+            .collect::<Vec<usize>>();
+        let x_batch = x_train.select(Axis(0), &batch_mask);
+        let t_batch = t_train.select(Axis(0), &batch_mask);
+
+        let loss = network.loss(x_batch.view(), t_batch.view());
+        println!("loss(before): {}", loss);
+
+        let grad = network.numerical_gradient(x_batch.view(), t_batch.view());
+
+        println!("avg(grad.dw1): {}", grad.dw1.sum() / grad.dw1.len() as f64);
+        println!("avg(grad.db1): {}", grad.db1.sum() / grad.db1.len() as f64);
+        println!("avg(grad.dw2): {}", grad.dw2.sum() / grad.dw2.len() as f64);
+        println!("avg(grad.db2): {}", grad.db2.sum() / grad.db2.len() as f64);
+        let temperature = (1.0 - (i as f64) / iters_num as f64).exp();
+        network.w1 -= &(final_learning_rate * temperature * grad.dw1);
+        network.b1 -= &(final_learning_rate * temperature * grad.db1);
+        network.w2 -= &(final_learning_rate * temperature * grad.dw2);
+        network.b2 -= &(final_learning_rate * temperature * grad.db2);
+
+        let loss = network.loss(x_batch.view(), t_batch.view());
+        println!("loss(after) : {}", loss);
+        println!("{}", separator());
+        if i % 10 == 0 {
+            println!(
+                "accuracy: {}",
+                network.accuracy(x_test.view(), t_test.view())
+            );
+        }
+        println!("{}", separator());
+    }
+    println!("{}", separator());
 }
