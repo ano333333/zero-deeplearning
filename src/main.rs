@@ -1,7 +1,10 @@
 mod layer;
 use layer::add_layer::AddLayer;
-use layer::layer::Layer;
-use layer::mul_layer::MulLayer;
+use layer::div_layer::DivLayer;
+use layer::exp_layer::ExpLayer;
+use layer::relu_layer::ReluLayer;
+use layer::sigmoid_layer::SigmoidLayer;
+use layer::{layer::Layer, mul_layer::MulLayer};
 mod mnist;
 
 use ndarray::{prelude::*, NdIndex};
@@ -249,35 +252,34 @@ impl TwoLayerNet {
 }
 
 fn main() {
-    let apple = 100.0;
-    let apple_num = 2;
-    let orange = 150.0;
-    let orange_num = 3;
-    let tax = 1.1;
+    let x = array![[-3.0, -2.0, -1.0], [0.0, 1.0, 2.0]];
+    let mut relu_layer = ReluLayer::new();
+    let y = relu_layer.forward(&x);
+    println!("y: {:?}", y);
+    let dx = relu_layer.backward(&Array2::ones(x.raw_dim()));
+    println!("dx: {:?}", dx);
 
-    let mut mul_apple_layer = MulLayer::new();
-    let mut mul_orange_layer = MulLayer::new();
-    let mut add_apple_orange_layer = AddLayer::new();
-    let mut mul_tax_layer = MulLayer::new();
-
-    let apple_price = mul_apple_layer.forward((apple, apple_num as f64));
-    let orange_price = mul_orange_layer.forward((orange, orange_num as f64));
-    let all_price = add_apple_orange_layer.forward((apple_price, orange_price));
-    let price = mul_tax_layer.forward((all_price, tax));
-
-    let dprice = 1.0;
-    let (dall_price, dtax) = mul_tax_layer.backward(dprice);
-    let (dapple_price, dorange_price) = add_apple_orange_layer.backward(dall_price);
-    let (dapple, dapple_num) = mul_apple_layer.backward(dapple_price);
-    let (dorange, dorange_num) = mul_orange_layer.backward(dorange_price);
-
-    println!("{}", price);
     println!("{}", separator());
-    println!("dapple: {}", dapple);
-    println!("dapple_num: {}", dapple_num);
-    println!("{}", separator());
-    println!("dorange: {}", dorange);
-    println!("dorange_num: {}", dorange_num);
-    println!("{}", separator());
-    println!("dtax: {}", dtax);
+
+    let x = array![[1.0, 2.0], [3.0, 4.0]];
+    let mut sigmoid_layer = SigmoidLayer::new();
+    let y = sigmoid_layer.forward(&x);
+    let mut layer1 = MulLayer::new();
+    let mut layer2 = ExpLayer::new();
+    let mut layer3 = AddLayer::new();
+    let mut layer4 = DivLayer::new();
+    let y1 = layer1.forward(&(x.clone(), Array::from_elem((2, 2), -1.0)));
+    let y2 = layer2.forward(&y1);
+    let y3 = layer3.forward(&(y2, Array::from_elem((2, 2), 1.0)));
+    let y4 = layer4.forward(&y3);
+    println!("y: {:?}", y);
+    println!("(check): {:?}", y4);
+    let dx = sigmoid_layer.backward(&Array2::ones(x.raw_dim()));
+    println!("dx: {:?}", dx);
+    let dy3 = layer4.backward(&Array2::ones(x.raw_dim()));
+    let dy2 = layer3.backward(&dy3).0;
+    let dy1 = layer2.backward(&dy2);
+    let dx = layer1.backward(&dy1).0;
+
+    println!("(check): {:?}", dx);
 }

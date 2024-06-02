@@ -1,23 +1,27 @@
 use crate::layer::layer::Layer;
+use ndarray::{Array, Dimension};
 
-pub struct MulLayer {
-    x: f64,
-    y: f64,
+pub struct MulLayer<Dim: Dimension> {
+    x: Array<f64, Dim>,
+    y: Array<f64, Dim>,
 }
 
-impl MulLayer {
+impl<Dim: Dimension> MulLayer<Dim> {
     pub fn new() -> Self {
-        MulLayer { x: 0.0, y: 0.0 }
+        MulLayer {
+            x: Array::zeros(Dim::default()),
+            y: Array::zeros(Dim::default()),
+        }
     }
 }
 
-impl Layer<(f64, f64), f64, (f64, f64)> for MulLayer {
-    fn forward(&mut self, x: (f64, f64)) -> f64 {
-        self.x = x.0;
-        self.y = x.1;
-        x.0 * x.1
+impl<Dim: Dimension> Layer<(Array<f64, Dim>, Array<f64, Dim>), Array<f64, Dim>> for MulLayer<Dim> {
+    fn forward(&mut self, (x, y): &(Array<f64, Dim>, Array<f64, Dim>)) -> Array<f64, Dim> {
+        self.x = x.clone();
+        self.y = y.clone();
+        x * y
     }
-    fn backward(&mut self, dout: f64) -> (f64, f64) {
-        (dout * self.y, dout * self.x)
+    fn backward(&mut self, dout: &Array<f64, Dim>) -> (Array<f64, Dim>, Array<f64, Dim>) {
+        (dout * &self.y, dout * &self.x)
     }
 }
