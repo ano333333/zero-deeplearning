@@ -1,3 +1,7 @@
+mod layer;
+use layer::add_layer::AddLayer;
+use layer::layer::Layer;
+use layer::mul_layer::MulLayer;
 mod mnist;
 
 use ndarray::{prelude::*, NdIndex};
@@ -245,53 +249,35 @@ impl TwoLayerNet {
 }
 
 fn main() {
-    let (x_train, t_train, x_test, t_test) = mnist::load_mnist::load_mnist(None, None);
-    let iters_num = 500;
-    let x_train_num = x_train.shape()[0];
-    let batch_size = 100;
-    let final_learning_rate = 0.1;
+    let apple = 100.0;
+    let apple_num = 2;
+    let orange = 150.0;
+    let orange_num = 3;
+    let tax = 1.1;
 
-    let indexes = (0..x_train_num).collect::<Vec<usize>>();
-    let mut rng = rand::thread_rng();
+    let mut mul_apple_layer = MulLayer::new();
+    let mut mul_orange_layer = MulLayer::new();
+    let mut add_apple_orange_layer = AddLayer::new();
+    let mut mul_tax_layer = MulLayer::new();
 
-    let mut network = TwoLayerNet::new(28 * 28, 50, 10);
+    let apple_price = mul_apple_layer.forward((apple, apple_num as f64));
+    let orange_price = mul_orange_layer.forward((orange, orange_num as f64));
+    let all_price = add_apple_orange_layer.forward((apple_price, orange_price));
+    let price = mul_tax_layer.forward((all_price, tax));
 
-    for i in 0..iters_num {
-        println!("count: {}", i);
-        let batch_mask = indexes
-            .iter()
-            .choose_multiple(&mut rng, batch_size)
-            .iter()
-            .map(|&i| *i)
-            .collect::<Vec<usize>>();
-        let x_batch = x_train.select(Axis(0), &batch_mask);
-        let t_batch = t_train.select(Axis(0), &batch_mask);
+    let dprice = 1.0;
+    let (dall_price, dtax) = mul_tax_layer.backward(dprice);
+    let (dapple_price, dorange_price) = add_apple_orange_layer.backward(dall_price);
+    let (dapple, dapple_num) = mul_apple_layer.backward(dapple_price);
+    let (dorange, dorange_num) = mul_orange_layer.backward(dorange_price);
 
-        let loss = network.loss(x_batch.view(), t_batch.view());
-        println!("loss(before): {}", loss);
-
-        let grad = network.numerical_gradient(x_batch.view(), t_batch.view());
-
-        println!("avg(grad.dw1): {}", grad.dw1.sum() / grad.dw1.len() as f64);
-        println!("avg(grad.db1): {}", grad.db1.sum() / grad.db1.len() as f64);
-        println!("avg(grad.dw2): {}", grad.dw2.sum() / grad.dw2.len() as f64);
-        println!("avg(grad.db2): {}", grad.db2.sum() / grad.db2.len() as f64);
-        let temperature = (1.0 - (i as f64) / iters_num as f64).exp();
-        network.w1 -= &(final_learning_rate * temperature * grad.dw1);
-        network.b1 -= &(final_learning_rate * temperature * grad.db1);
-        network.w2 -= &(final_learning_rate * temperature * grad.dw2);
-        network.b2 -= &(final_learning_rate * temperature * grad.db2);
-
-        let loss = network.loss(x_batch.view(), t_batch.view());
-        println!("loss(after) : {}", loss);
-        println!("{}", separator());
-        if i % 10 == 0 {
-            println!(
-                "accuracy: {}",
-                network.accuracy(x_test.view(), t_test.view())
-            );
-        }
-        println!("{}", separator());
-    }
+    println!("{}", price);
     println!("{}", separator());
+    println!("dapple: {}", dapple);
+    println!("dapple_num: {}", dapple_num);
+    println!("{}", separator());
+    println!("dorange: {}", dorange);
+    println!("dorange_num: {}", dorange_num);
+    println!("{}", separator());
+    println!("dtax: {}", dtax);
 }
