@@ -1,23 +1,23 @@
 use crate::layer::layer::Layer;
+use ndarray::{prelude::Array, Dimension};
 
-pub struct AddLayer {
-    x: f64,
-    y: f64,
+pub struct AddLayer<Dim: Dimension> {
+    _dim: Dim,
 }
 
-impl AddLayer {
+impl<Dim: Dimension> AddLayer<Dim> {
     pub fn new() -> Self {
-        AddLayer { x: 0.0, y: 0.0 }
+        AddLayer {
+            _dim: Dim::default(),
+        }
     }
 }
 
-impl Layer<(f64, f64), f64, (f64, f64)> for AddLayer {
-    fn forward(&mut self, x: (f64, f64)) -> f64 {
-        self.x = x.0;
-        self.y = x.1;
-        x.0 + x.1
+impl<Dim: Dimension> Layer<(Array<f64, Dim>, Array<f64, Dim>), Array<f64, Dim>> for AddLayer<Dim> {
+    fn forward(&mut self, (x, y): &(Array<f64, Dim>, Array<f64, Dim>)) -> Array<f64, Dim> {
+        x + y
     }
-    fn backward(&mut self, dout: f64) -> (f64, f64) {
-        (dout, dout)
+    fn backward(&mut self, dout: &Array<f64, Dim>) -> (Array<f64, Dim>, Array<f64, Dim>) {
+        (dout.clone(), dout.clone())
     }
 }
