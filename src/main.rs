@@ -4,19 +4,24 @@ use layer::layer::Layer;
 use layer::relu_layer::ReluLayer;
 use layer::softmax_with_loss_layer::SoftmaxWithLossLayer;
 mod mnist;
+mod optimize;
 mod subfunction;
 
 use ndarray::prelude::*;
 use ndarray_rand::rand::seq::IteratorRandom;
-use ndarray_rand::rand_distr::{Normal, Uniform};
+use ndarray_rand::rand_distr::Normal;
 use ndarray_rand::{rand, RandomExt};
+use optimize::optimize::Optimize;
 use subfunction::argmax::argmax;
-use subfunction::cross_entropy_error::cross_entropy_error;
-use subfunction::softmax_batch::softmax_batch;
+
+use crate::optimize::ada_grad::AdaGrad;
+use crate::optimize::momentum::Momentum;
+use crate::optimize::sgd::SGD;
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
 }
 
+#[derive(Clone)]
 struct TwoLayerNet {
     w1: Array2<f64>,
     b1: Array1<f64>,
@@ -104,12 +109,6 @@ impl TwoLayerNet {
             db2: affine2.db.clone(),
         }
     }
-    fn update(&mut self, grad: &TwoLayerNetGradient) {
-        self.w1 -= &grad.dw1;
-        self.b1 -= &grad.db1;
-        self.w2 -= &grad.dw2;
-        self.b2 -= &grad.db2;
-    }
 }
 
 fn main() {
@@ -124,60 +123,103 @@ fn main() {
     let batch_size = 100;
     let iters_num = 10_000;
     // let iters_num = 500;
-    let epoch_size = training_size / batch_size as u32;
+    let epoch_size = 100;
     let learning_rate = 0.1;
+    let momentum = 0.9;
 
-    let mut network = TwoLayerNet::new(input_layer_size, hidden_layer_size, output_layer_size);
+    let network = TwoLayerNet::new(input_layer_size, hidden_layer_size, output_layer_size);
+    let mut network_sgd = network.clone();
+    let mut sgd_w1 = SGD::<Ix2>::new(learning_rate);
+    let mut sgd_b1 = SGD::<Ix1>::new(learning_rate);
+    let mut sgd_w2 = SGD::<Ix2>::new(learning_rate);
+    let mut sgd_b2 = SGD::<Ix1>::new(learning_rate);
+    let mut network_momentum = network.clone();
+    let mut momentum_w1 = Momentum::<Ix2>::new(learning_rate, momentum);
+    let mut momentum_b1 = Momentum::<Ix1>::new(learning_rate, momentum);
+    let mut momentum_w2 = Momentum::<Ix2>::new(learning_rate, momentum);
+    let mut momentum_b2 = Momentum::<Ix1>::new(learning_rate, momentum);
+    let mut network_ada_grad = network.clone();
+    let mut ada_grad_w1 = AdaGrad::<Ix2>::new(learning_rate);
+    let mut ada_grad_b1 = AdaGrad::<Ix1>::new(learning_rate);
+    let mut ada_grad_w2 = AdaGrad::<Ix2>::new(learning_rate);
+    let mut ada_grad_b2 = AdaGrad::<Ix1>::new(learning_rate);
 
-    let indexes = (0..(training_size as usize)).collect::<Vec<usize>>();
+    let all_indexes = (0..(training_size as usize)).collect::<Vec<usize>>();
     let mut rng = rand::thread_rng();
+    // 各イテレートで用いる学習データのインデックスを固定化する
+    let indexes = (0..iters_num)
+        .map(|_| {
+            all_indexes
+                .iter()
+                .choose_multiple(&mut rng, batch_size as usize)
+                .iter()
+                .map(|&i| *i)
+                .collect::<Vec<usize>>()
+        })
+        .collect::<Vec<Vec<usize>>>();
     for i in 0..iters_num {
         // println!("count: {}", i);
-        let batch_mask = indexes
-            .iter()
-            .choose_multiple(&mut rng, batch_size as usize)
-            .iter()
-            .map(|&i| *i)
-            .collect::<Vec<usize>>();
+        let batch_mask = &indexes[i];
         let x_batch = x_train.select(Axis(0), &batch_mask);
         let t_batch = t_train.select(Axis(0), &batch_mask);
 
-        // let loss = network.loss(&x_batch, &t_batch);
-        // println!("loss(before): {}", loss);
+        let grad = network_sgd.gradient(&x_batch, &t_batch);
+        sgd_w1.update(&mut network_sgd.w1, &grad.dw1);
+        sgd_b1.update(&mut network_sgd.b1, &grad.db1);
+        sgd_w2.update(&mut network_sgd.w2, &grad.dw2);
+        sgd_b2.update(&mut network_sgd.b2, &grad.db2);
 
-        let mut grad = network.gradient(&x_batch, &t_batch);
-        // println!("avg(dw1): {}", grad.dw1.sum() / grad.dw1.len() as f64);
-        // println!("avg(db1): {}", grad.db1.sum() / grad.db1.len() as f64);
-        // println!("avg(dw2): {}", grad.dw2.sum() / grad.dw2.len() as f64);
-        // println!("avg(db2): {}", grad.db2.sum() / grad.db2.len() as f64);
+        let grad = network_momentum.gradient(&x_batch, &t_batch);
+        momentum_w1.update(&mut network_momentum.w1, &grad.dw1);
+        momentum_b1.update(&mut network_momentum.b1, &grad.db1);
+        momentum_w2.update(&mut network_momentum.w2, &grad.dw2);
+        momentum_b2.update(&mut network_momentum.b2, &grad.db2);
 
-        grad.dw1 *= learning_rate;
-        grad.db1 *= learning_rate;
-        grad.dw2 *= learning_rate;
-        grad.db2 *= learning_rate;
-        network.update(&grad);
+        let grad = network_ada_grad.gradient(&x_batch, &t_batch);
+        ada_grad_w1.update(&mut network_ada_grad.w1, &grad.dw1);
+        ada_grad_b1.update(&mut network_ada_grad.b1, &grad.db1);
+        ada_grad_w2.update(&mut network_ada_grad.w2, &grad.dw2);
+        ada_grad_b2.update(&mut network_ada_grad.b2, &grad.db2);
 
-        // let loss = network.loss(&x_batch, &t_batch);
-        // println!("loss(after): {}", loss);
         if i % epoch_size == 0 {
-            let train_acc = network.accuracy(&x_train, &t_train);
-            let test_acc = network.accuracy(&x_test, &t_test);
-            println!("train acc, test acc | {}, {}", train_acc, test_acc);
+            // 各ネットワークのlossとテストデータaccを、それぞれ少数第四位まで表示
+            let train_loss_sgd = network_sgd.loss(&x_train, &t_train);
+            let test_acc_sgd = network_sgd.accuracy(&x_test, &t_test);
+            let train_loss_momentum = network_momentum.loss(&x_train, &t_train);
+            let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
+            let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
+            let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
+            println!(
+                "sgd      | train loss: {:?}, test acc: {:?}",
+                train_loss_sgd, test_acc_sgd
+            );
+            println!(
+                "momentum | train loss: {:?}, test acc: {:?}",
+                train_loss_momentum, test_acc_momentum
+            );
+            println!(
+                "ada_grad | train loss: {:?}, test acc: {:?}",
+                train_loss_ada_grad, test_acc_ada_grad
+            );
+            println!("{}", separator());
         }
-        // println!("{}", separator());
     }
-    println!("{}", separator());
-    let train_acc = network.accuracy(&x_train, &t_train);
-    let test_acc = network.accuracy(&x_test, &t_test);
-    // x_test[0..5]がどのような値になっているかを確認
-    let x = x_test.slice_move(s![0..5, ..]);
-    let y = network.predict(&x);
-    let y = softmax_batch(y.view());
-    let t = t_test.slice_move(s![0..5, ..]);
-    for i in 0..5 {
-        let y = y.index_axis(Axis(0), i);
-        let t = t.index_axis(Axis(0), i);
-        println!("x[{}] -> {} (t={})", i, y, t);
-    }
-    println!("train acc, test acc | {}, {}", train_acc, test_acc);
+    let train_loss_sgd = network_sgd.loss(&x_train, &t_train);
+    let test_acc_sgd = network_sgd.accuracy(&x_test, &t_test);
+    let train_loss_momentum = network_momentum.loss(&x_train, &t_train);
+    let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
+    let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
+    let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
+    println!(
+        "sgd      | train loss: {:?}, test acc: {:?}",
+        train_loss_sgd, test_acc_sgd
+    );
+    println!(
+        "momentum | train loss: {:?}, test acc: {:?}",
+        train_loss_momentum, test_acc_momentum
+    );
+    println!(
+        "ada_grad | train loss: {:?}, test acc: {:?}",
+        train_loss_ada_grad, test_acc_ada_grad
+    );
 }
