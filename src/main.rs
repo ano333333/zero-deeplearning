@@ -9,7 +9,7 @@ mod subfunction;
 
 use ndarray::prelude::*;
 use ndarray_rand::rand::seq::IteratorRandom;
-use ndarray_rand::rand_distr::Normal;
+use ndarray_rand::rand_distr::{Distribution, Normal};
 use ndarray_rand::{rand, RandomExt};
 use optimize::optimize::Optimize;
 use subfunction::argmax::argmax;
@@ -37,14 +37,16 @@ struct TwoLayerNetGradient {
 }
 
 impl TwoLayerNet {
-    fn new(input_size: usize, hidden_size: usize, output_size: usize) -> Self {
-        let w1 = Array2::random((input_size, hidden_size), Normal::new(0.0, 1.0e-4).unwrap());
-        let b1 = Array1::random(hidden_size, Normal::new(0.0, 1.0e-4).unwrap());
-        let w2 = Array2::random(
-            (hidden_size, output_size),
-            Normal::new(0.0, 1.0e-4).unwrap(),
-        );
-        let b2 = Array1::random(output_size, Normal::new(0.0, 1.0e-4).unwrap());
+    fn new(
+        input_size: usize,
+        hidden_size: usize,
+        output_size: usize,
+        dist: &impl Distribution<f64>,
+    ) -> Self {
+        let w1 = Array2::random((input_size, hidden_size), &dist);
+        let b1 = Array1::random(hidden_size, &dist);
+        let w2 = Array2::random((hidden_size, output_size), &dist);
+        let b2 = Array1::random(output_size, &dist);
         TwoLayerNet { w1, b1, w2, b2 }
     }
     fn create_affine1(&self) -> AffineLayer {
@@ -127,7 +129,12 @@ fn main() {
     let learning_rate = 0.1;
     let momentum = 0.9;
 
-    let network = TwoLayerNet::new(input_layer_size, hidden_layer_size, output_layer_size);
+    let network = TwoLayerNet::new(
+        input_layer_size,
+        hidden_layer_size,
+        output_layer_size,
+        &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+    );
     let mut network_sgd = network.clone();
     let mut sgd_w1 = SGD::<Ix2>::new(learning_rate);
     let mut sgd_b1 = SGD::<Ix1>::new(learning_rate);
@@ -189,6 +196,7 @@ fn main() {
             let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
             let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
             let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
+            println!("epoch: {}", i / epoch_size);
             println!(
                 "sgd      | train loss: {:?}, test acc: {:?}",
                 train_loss_sgd, test_acc_sgd
@@ -210,6 +218,7 @@ fn main() {
     let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
     let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
     let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
+    println!("epoch final");
     println!(
         "sgd      | train loss: {:?}, test acc: {:?}",
         train_loss_sgd, test_acc_sgd
