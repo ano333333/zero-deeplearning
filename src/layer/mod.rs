@@ -1,5 +1,6 @@
 pub mod add_layer;
 pub mod affine_layer;
+pub mod batch_normalization_layer;
 pub mod div_layer;
 pub mod exp_layer;
 pub mod layer;

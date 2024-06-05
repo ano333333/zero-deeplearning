@@ -14,29 +14,30 @@ use ndarray_rand::{rand, RandomExt};
 use optimize::optimize::Optimize;
 use subfunction::argmax::argmax;
 
-use crate::optimize::ada_grad::AdaGrad;
-use crate::optimize::momentum::Momentum;
+use crate::layer::batch_normalization_layer::BatchNormalizationLayer;
 use crate::optimize::sgd::SGD;
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
 }
 
 #[derive(Clone)]
-struct TwoLayerNet {
+struct TwoLayerNetWithBatchNormalizationLayer {
     w1: Array2<f64>,
     b1: Array1<f64>,
+    batch_aff: Array1<f64>,
     w2: Array2<f64>,
     b2: Array1<f64>,
 }
 
-struct TwoLayerNetGradient {
+struct TwoLayerNetWithBatchNormalizationLayerGradient {
     dw1: Array2<f64>,
     db1: Array1<f64>,
+    dbatch_aff: Array1<f64>,
     dw2: Array2<f64>,
     db2: Array1<f64>,
 }
 
-impl TwoLayerNet {
+impl TwoLayerNetWithBatchNormalizationLayer {
     fn new(
         input_size: usize,
         hidden_size: usize,
@@ -47,10 +48,19 @@ impl TwoLayerNet {
         let b1 = Array1::random(hidden_size, &dist);
         let w2 = Array2::random((hidden_size, output_size), &dist);
         let b2 = Array1::random(output_size, &dist);
-        TwoLayerNet { w1, b1, w2, b2 }
+        TwoLayerNetWithBatchNormalizationLayer {
+            w1,
+            b1,
+            batch_aff: array![1.0, 0.0],
+            w2,
+            b2,
+        }
     }
     fn create_affine1(&self) -> AffineLayer {
         AffineLayer::new(&self.w1, &self.b1)
+    }
+    fn create_batch_normalization1(&self) -> BatchNormalizationLayer {
+        BatchNormalizationLayer::new(self.w1.shape()[1], &self.batch_aff)
     }
     fn create_relu1(&self) -> ReluLayer<Ix2> {
         ReluLayer::new()
@@ -60,9 +70,11 @@ impl TwoLayerNet {
     }
     fn predict(&mut self, x: &Array2<f64>) -> Array2<f64> {
         let mut affine1 = self.create_affine1();
+        let mut batch_normalization1 = self.create_batch_normalization1();
         let mut relu1 = self.create_relu1();
         let mut affine2 = self.create_affine2();
         let mut x = affine1.forward(x);
+        x = batch_normalization1.forward(&x);
         x = relu1.forward(&x);
         x = affine2.forward(&x);
         x
@@ -86,12 +98,18 @@ impl TwoLayerNet {
         }
         count as f64 / y.shape()[0] as f64
     }
-    fn gradient(&mut self, x: &Array2<f64>, t: &Array2<f64>) -> TwoLayerNetGradient {
+    fn gradient(
+        &mut self,
+        x: &Array2<f64>,
+        t: &Array2<f64>,
+    ) -> TwoLayerNetWithBatchNormalizationLayerGradient {
         let mut affine1 = self.create_affine1();
+        let mut batch_normalization1 = self.create_batch_normalization1();
         let mut relu1 = self.create_relu1();
         let mut affine2 = self.create_affine2();
 
         let x = affine1.forward(x);
+        let x = batch_normalization1.forward(&x);
         let x = relu1.forward(&x);
         let x = affine2.forward(&x);
 
@@ -104,9 +122,10 @@ impl TwoLayerNet {
         let dout = relu1.backward(&dout);
         affine1.backward(&dout);
 
-        TwoLayerNetGradient {
+        TwoLayerNetWithBatchNormalizationLayerGradient {
             dw1: affine1.dw.clone(),
             db1: affine1.db.clone(),
+            dbatch_aff: batch_normalization1.daff.clone(),
             dw2: affine2.dw.clone(),
             db2: affine2.db.clone(),
         }
@@ -127,29 +146,20 @@ fn main() {
     // let iters_num = 500;
     let epoch_size = 100;
     let learning_rate = 0.1;
-    let momentum = 0.9;
 
-    let network = TwoLayerNet::new(
+    let network = TwoLayerNetWithBatchNormalizationLayer::new(
         input_layer_size,
         hidden_layer_size,
         output_layer_size,
-        &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+        // &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+        &Normal::new(0.0, 1.0).unwrap(),
     );
     let mut network_sgd = network.clone();
     let mut sgd_w1 = SGD::<Ix2>::new(learning_rate);
     let mut sgd_b1 = SGD::<Ix1>::new(learning_rate);
     let mut sgd_w2 = SGD::<Ix2>::new(learning_rate);
     let mut sgd_b2 = SGD::<Ix1>::new(learning_rate);
-    let mut network_momentum = network.clone();
-    let mut momentum_w1 = Momentum::<Ix2>::new(learning_rate, momentum);
-    let mut momentum_b1 = Momentum::<Ix1>::new(learning_rate, momentum);
-    let mut momentum_w2 = Momentum::<Ix2>::new(learning_rate, momentum);
-    let mut momentum_b2 = Momentum::<Ix1>::new(learning_rate, momentum);
-    let mut network_ada_grad = network.clone();
-    let mut ada_grad_w1 = AdaGrad::<Ix2>::new(learning_rate);
-    let mut ada_grad_b1 = AdaGrad::<Ix1>::new(learning_rate);
-    let mut ada_grad_w2 = AdaGrad::<Ix2>::new(learning_rate);
-    let mut ada_grad_b2 = AdaGrad::<Ix1>::new(learning_rate);
+    let mut sgd_batch_aff = SGD::<Ix1>::new(learning_rate);
 
     let all_indexes = (0..(training_size as usize)).collect::<Vec<usize>>();
     let mut rng = rand::thread_rng();
@@ -173,62 +183,27 @@ fn main() {
         let grad = network_sgd.gradient(&x_batch, &t_batch);
         sgd_w1.update(&mut network_sgd.w1, &grad.dw1);
         sgd_b1.update(&mut network_sgd.b1, &grad.db1);
+        sgd_batch_aff.update(&mut network_sgd.batch_aff, &grad.dbatch_aff);
         sgd_w2.update(&mut network_sgd.w2, &grad.dw2);
         sgd_b2.update(&mut network_sgd.b2, &grad.db2);
-
-        let grad = network_momentum.gradient(&x_batch, &t_batch);
-        momentum_w1.update(&mut network_momentum.w1, &grad.dw1);
-        momentum_b1.update(&mut network_momentum.b1, &grad.db1);
-        momentum_w2.update(&mut network_momentum.w2, &grad.dw2);
-        momentum_b2.update(&mut network_momentum.b2, &grad.db2);
-
-        let grad = network_ada_grad.gradient(&x_batch, &t_batch);
-        ada_grad_w1.update(&mut network_ada_grad.w1, &grad.dw1);
-        ada_grad_b1.update(&mut network_ada_grad.b1, &grad.db1);
-        ada_grad_w2.update(&mut network_ada_grad.w2, &grad.dw2);
-        ada_grad_b2.update(&mut network_ada_grad.b2, &grad.db2);
 
         if i % epoch_size == 0 {
             // 各ネットワークのlossとテストデータaccを、それぞれ少数第四位まで表示
             let train_loss_sgd = network_sgd.loss(&x_train, &t_train);
             let test_acc_sgd = network_sgd.accuracy(&x_test, &t_test);
-            let train_loss_momentum = network_momentum.loss(&x_train, &t_train);
-            let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
-            let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
-            let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
             println!("epoch: {}", i / epoch_size);
             println!(
                 "sgd      | train loss: {:?}, test acc: {:?}",
                 train_loss_sgd, test_acc_sgd
-            );
-            println!(
-                "momentum | train loss: {:?}, test acc: {:?}",
-                train_loss_momentum, test_acc_momentum
-            );
-            println!(
-                "ada_grad | train loss: {:?}, test acc: {:?}",
-                train_loss_ada_grad, test_acc_ada_grad
             );
             println!("{}", separator());
         }
     }
     let train_loss_sgd = network_sgd.loss(&x_train, &t_train);
     let test_acc_sgd = network_sgd.accuracy(&x_test, &t_test);
-    let train_loss_momentum = network_momentum.loss(&x_train, &t_train);
-    let test_acc_momentum = network_momentum.accuracy(&x_test, &t_test);
-    let train_loss_ada_grad = network_ada_grad.loss(&x_train, &t_train);
-    let test_acc_ada_grad = network_ada_grad.accuracy(&x_test, &t_test);
     println!("epoch final");
     println!(
         "sgd      | train loss: {:?}, test acc: {:?}",
         train_loss_sgd, test_acc_sgd
-    );
-    println!(
-        "momentum | train loss: {:?}, test acc: {:?}",
-        train_loss_momentum, test_acc_momentum
-    );
-    println!(
-        "ada_grad | train loss: {:?}, test acc: {:?}",
-        train_loss_ada_grad, test_acc_ada_grad
     );
 }
