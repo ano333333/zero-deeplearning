@@ -45,16 +45,16 @@ impl TwoLayerNet {
             b2,
         }
     }
-    pub fn create_affine1(&self) -> AffineLayer {
+    pub fn create_affine1(&self) -> AffineLayer<'_> {
         AffineLayer::new(&self.w1, &self.b1)
     }
-    pub fn create_batch_normalization1(&self) -> BatchNormalizationLayer {
+    pub fn create_batch_normalization1(&self) -> BatchNormalizationLayer<'_> {
         BatchNormalizationLayer::new(self.w1.shape()[1], &self.batch_aff)
     }
     pub fn create_relu1(&self) -> ReluLayer<Ix2> {
         ReluLayer::new()
     }
-    pub fn create_affine2(&self) -> AffineLayer {
+    pub fn create_affine2(&self) -> AffineLayer<'_> {
         AffineLayer::new(&self.w2, &self.b2)
     }
     pub fn predict(&mut self, x: &Array2<f64>) -> Array2<f64> {
