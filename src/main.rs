@@ -22,8 +22,12 @@ fn main() {
     let input_layer_size = 28 * 28;
     let hidden_layer_size = 50;
     let output_layer_size = 10;
-    let (x_train, t_train, x_val, t_val, x_test, t_test) =
-        mnist::load_mnist::load_mnist(Some(training_size), Some(validation_size), Some(10_000));
+    let (x_train, t_train, x_val, t_val, x_test, t_test) = mnist::load_mnist::load_mnist(
+        None,
+        Some(training_size),
+        Some(validation_size),
+        Some(10_000),
+    );
 
     let batch_size = 100;
     let iters_num = 10_000;
