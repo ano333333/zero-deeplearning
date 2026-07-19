@@ -92,3 +92,144 @@ pub fn load_mnist(
         test_lbl,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::{self, Write};
+    use std::path::{Path, PathBuf};
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    const TRAIN_HEADER_LENGTH: u32 = 60_000;
+    const TEST_HEADER_LENGTH: u32 = 10_000;
+
+    static CWD_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    struct TestWorkspace {
+        path: PathBuf,
+    }
+
+    struct CurrentDirGuard {
+        original_dir: PathBuf,
+    }
+
+    impl CurrentDirGuard {
+        fn change_to(path: &Path) -> Self {
+            let original_dir = std::env::current_dir().unwrap();
+            std::env::set_current_dir(path).unwrap();
+            Self { original_dir }
+        }
+    }
+
+    impl Drop for CurrentDirGuard {
+        fn drop(&mut self) {
+            std::env::set_current_dir(&self.original_dir).unwrap();
+        }
+    }
+
+    impl TestWorkspace {
+        fn new() -> Self {
+            let id = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "zero-deeplearning-mnist-fixture-{}-{}",
+                std::process::id(),
+                id
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+    }
+
+    impl Drop for TestWorkspace {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn loads_mnist_arrays_from_default_data_path() {
+        let _guard = CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let workspace = TestWorkspace::new();
+        let fixture_dir = workspace.path.join("data");
+        fs::create_dir_all(&fixture_dir).unwrap();
+        write_fixture(&fixture_dir).unwrap();
+        let _current_dir = CurrentDirGuard::change_to(&workspace.path);
+
+        let (train_data, train_labels, validation_data, validation_labels, test_data, test_labels) =
+            load_mnist(Some(2), Some(1), Some(2));
+
+        assert_eq!(train_data.dim(), (2, 28 * 28));
+        assert_eq!(train_labels.dim(), (2, 10));
+        assert_eq!(validation_data.dim(), (1, 28 * 28));
+        assert_eq!(validation_labels.dim(), (1, 10));
+        assert_eq!(test_data.dim(), (2, 28 * 28));
+        assert_eq!(test_labels.dim(), (2, 10));
+
+        assert_eq!(train_data[[0, 0]], 0.0);
+        assert_eq!(train_data[[1, 0]], 128.0 / 256.0);
+        assert_eq!(validation_data[[0, 0]], 255.0 / 256.0);
+        assert_eq!(test_data[[0, 0]], 64.0 / 256.0);
+        assert_eq!(test_data[[1, 0]], 32.0 / 256.0);
+
+        assert_eq!(train_labels[[0, 3]], 1.0);
+        assert_eq!(train_labels[[1, 8]], 1.0);
+        assert_eq!(validation_labels[[0, 1]], 1.0);
+        assert_eq!(test_labels[[0, 4]], 1.0);
+        assert_eq!(test_labels[[1, 9]], 1.0);
+    }
+
+    /// fixtureをmnistのデフォルトパス(`data/`)に作成する
+    /// FIXME: load_mnistの読み込むファイルパスを引数で指定可能にする
+    fn write_fixture(dir: &Path) -> io::Result<()> {
+        write_images(
+            &dir.join("train-images-idx3-ubyte"),
+            TRAIN_HEADER_LENGTH,
+            &[0, 128, 255],
+        )?;
+        write_labels(
+            &dir.join("train-labels-idx1-ubyte"),
+            TRAIN_HEADER_LENGTH,
+            &[3, 8, 1],
+        )?;
+        write_images(
+            &dir.join("t10k-images-idx3-ubyte"),
+            TEST_HEADER_LENGTH,
+            &[64, 32],
+        )?;
+        write_labels(
+            &dir.join("t10k-labels-idx1-ubyte"),
+            TEST_HEADER_LENGTH,
+            &[4, 9],
+        )?;
+        Ok(())
+    }
+
+    fn write_labels(path: &Path, header_length: u32, labels: &[u8]) -> io::Result<()> {
+        let mut file = File::create(path)?;
+        file.write_all(&2049_u32.to_be_bytes())?;
+        file.write_all(&header_length.to_be_bytes())?;
+        file.write_all(labels)?;
+        Ok(())
+    }
+
+    fn write_images(path: &Path, header_length: u32, first_pixels: &[u8]) -> io::Result<()> {
+        let mut file = File::create(path)?;
+        file.write_all(&2051_u32.to_be_bytes())?;
+        file.write_all(&header_length.to_be_bytes())?;
+        file.write_all(&28_u32.to_be_bytes())?;
+        file.write_all(&28_u32.to_be_bytes())?;
+
+        for &first_pixel in first_pixels {
+            let mut image = [0_u8; 28 * 28];
+            image[0] = first_pixel;
+            file.write_all(&image)?;
+        }
+
+        Ok(())
+    }
+}
