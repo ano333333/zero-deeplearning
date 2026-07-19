@@ -1,8 +1,4 @@
 mod layer;
-use layer::affine_layer::AffineLayer;
-use layer::layer::Layer;
-use layer::relu_layer::ReluLayer;
-use layer::softmax_with_loss_layer::SoftmaxWithLossLayer;
 mod mnist;
 mod optimize;
 mod subfunction;
@@ -14,9 +10,7 @@ use ndarray_rand::rand::Rng;
 use ndarray_rand::rand_distr::Normal;
 use optimize::optimize::Optimize;
 use two_layer_net::TwoLayerNet;
-use two_layer_net::TwoLayerNetGradient;
 
-use crate::layer::batch_normalization_layer::BatchNormalizationLayer;
 use crate::optimize::sgd::SGD;
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
