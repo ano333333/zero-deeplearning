@@ -11,6 +11,7 @@ use ndarray_rand::rand_distr::Normal;
 use optimize::optimize::Optimize;
 use two_layer_net::TwoLayerNet;
 
+use crate::mnist::load_mnist::MnistData;
 use crate::optimize::sgd::SGD;
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -22,7 +23,14 @@ fn main() {
     let input_layer_size = 28 * 28;
     let hidden_layer_size = 50;
     let output_layer_size = 10;
-    let (x_train, t_train, x_val, t_val, x_test, t_test) = mnist::load_mnist::load_mnist(
+    let MnistData {
+        train_data: x_train,
+        train_labels: t_train,
+        validation_data: x_val,
+        validation_labels: t_val,
+        test_data: x_test,
+        test_labels: t_test,
+    } = mnist::load_mnist::load_mnist(
         None,
         Some(training_size),
         Some(validation_size),

@@ -1,6 +1,15 @@
 use mnist::*;
 use ndarray::prelude::*;
 
+pub struct MnistData {
+    pub train_data: Array2<f64>,
+    pub train_labels: Array2<f64>,
+    pub validation_data: Array2<f64>,
+    pub validation_labels: Array2<f64>,
+    pub test_data: Array2<f64>,
+    pub test_labels: Array2<f64>,
+}
+
 /// MNISTデータセットを読み込む
 ///
 /// MNISTデータセットを読み込み、訓練データ、訓練ラベル、検証データ、検証ラベルの4つの配列を返す。
@@ -14,31 +23,18 @@ use ndarray::prelude::*;
 ///
 /// # Returns
 ///
-/// * `(train_data, trn_lbl, validation_data, val_lbl)` - 訓練データ、訓練ラベル、検証データ、検証ラベルの4つの配列。
-///   * `train_data` - 訓練データ。形状は(訓練データのサイズ, 28*28)。
-///   * `trn_lbl` - one-hot形式の訓練ラベル。形状は(訓練データのサイズ, 10)。
-///   * `validation_data` - 検証データ。形状は(検証データのサイズ, 28*28)。
-///   * `val_lbl` - one-hot形式の検証ラベル。形状は(検証データのサイズ, 10)。
-///   * `test_data` - テストデータ。形状は(テストデータのサイズ, 28*28)。
-///   * `test_lbl` - one-hot形式のテストラベル。形状は(テストデータのサイズ, 10)。
+/// * `MnistData` - 訓練データ、訓練ラベル、検証データ、検証ラベル、テストデータ、テストラベル。
 ///
 /// # Examples
 /// ```
-///     let (train_data, trn_lbl, validation_data, val_lbl, test_data, test_lbl) = mnist::load_mnist::load_mnist(None, None, None, None);
+///     let mnist_data = mnist::load_mnist::load_mnist(None, None, None, None);
 /// ```
 pub fn load_mnist(
     base_path: Option<&str>,
     training_size: Option<u32>,
     validation_size: Option<u32>,
     test_size: Option<u32>,
-) -> (
-    Array2<f64>,
-    Array2<f64>,
-    Array2<f64>,
-    Array2<f64>,
-    Array2<f64>,
-    Array2<f64>,
-) {
+) -> MnistData {
     let base_path = base_path.unwrap_or("data/");
     let training_size = training_size.unwrap_or(50_000);
     let validation_size = validation_size.unwrap_or(500);
@@ -87,14 +83,14 @@ pub fn load_mnist(
             0.0
         }
     });
-    (
+    MnistData {
         train_data,
-        trn_lbl,
+        train_labels: trn_lbl,
         validation_data,
-        val_lbl,
+        validation_labels: val_lbl,
         test_data,
-        test_lbl,
-    )
+        test_labels: test_lbl,
+    }
 }
 
 #[cfg(test)]
@@ -143,27 +139,26 @@ mod tests {
         let workspace = TestWorkspace::new();
         write_fixture(&workspace.path).unwrap();
 
-        let (train_data, train_labels, validation_data, validation_labels, test_data, test_labels) =
-            load_mnist(Some(workspace.as_str()), Some(2), Some(1), Some(2));
+        let mnist_data = load_mnist(Some(workspace.as_str()), Some(2), Some(1), Some(2));
 
-        assert_eq!(train_data.dim(), (2, 28 * 28));
-        assert_eq!(train_labels.dim(), (2, 10));
-        assert_eq!(validation_data.dim(), (1, 28 * 28));
-        assert_eq!(validation_labels.dim(), (1, 10));
-        assert_eq!(test_data.dim(), (2, 28 * 28));
-        assert_eq!(test_labels.dim(), (2, 10));
+        assert_eq!(mnist_data.train_data.dim(), (2, 28 * 28));
+        assert_eq!(mnist_data.train_labels.dim(), (2, 10));
+        assert_eq!(mnist_data.validation_data.dim(), (1, 28 * 28));
+        assert_eq!(mnist_data.validation_labels.dim(), (1, 10));
+        assert_eq!(mnist_data.test_data.dim(), (2, 28 * 28));
+        assert_eq!(mnist_data.test_labels.dim(), (2, 10));
 
-        assert_eq!(train_data[[0, 0]], 0.0);
-        assert_eq!(train_data[[1, 0]], 128.0 / 256.0);
-        assert_eq!(validation_data[[0, 0]], 255.0 / 256.0);
-        assert_eq!(test_data[[0, 0]], 64.0 / 256.0);
-        assert_eq!(test_data[[1, 0]], 32.0 / 256.0);
+        assert_eq!(mnist_data.train_data[[0, 0]], 0.0);
+        assert_eq!(mnist_data.train_data[[1, 0]], 128.0 / 256.0);
+        assert_eq!(mnist_data.validation_data[[0, 0]], 255.0 / 256.0);
+        assert_eq!(mnist_data.test_data[[0, 0]], 64.0 / 256.0);
+        assert_eq!(mnist_data.test_data[[1, 0]], 32.0 / 256.0);
 
-        assert_eq!(train_labels[[0, 3]], 1.0);
-        assert_eq!(train_labels[[1, 8]], 1.0);
-        assert_eq!(validation_labels[[0, 1]], 1.0);
-        assert_eq!(test_labels[[0, 4]], 1.0);
-        assert_eq!(test_labels[[1, 9]], 1.0);
+        assert_eq!(mnist_data.train_labels[[0, 3]], 1.0);
+        assert_eq!(mnist_data.train_labels[[1, 8]], 1.0);
+        assert_eq!(mnist_data.validation_labels[[0, 1]], 1.0);
+        assert_eq!(mnist_data.test_labels[[0, 4]], 1.0);
+        assert_eq!(mnist_data.test_labels[[1, 9]], 1.0);
     }
 
     fn write_fixture(dir: &Path) -> io::Result<()> {
