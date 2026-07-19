@@ -48,8 +48,7 @@ impl<'a> Layer<Array2<f64>, Array2<f64>> for BatchNormalizationLayer<'a> {
         self.u2 = 1.0 / &self.u3;
         self.u1 = self.u6.clone();
         self.xhat = &self.u6 * &self.u2;
-        let y = &self.xhat * self.aff[0] + self.aff[1];
-        y
+        &self.xhat * self.aff[0] + self.aff[1]
     }
     fn backward(&mut self, dout: &Array2<f64>) -> Array2<f64> {
         self.daff[0] = (&self.xhat * dout).sum();
