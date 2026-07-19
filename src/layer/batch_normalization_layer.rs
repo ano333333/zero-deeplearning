@@ -56,7 +56,6 @@ impl<'a> Layer<Array2<f64>, Array2<f64>> for BatchNormalizationLayer<'a> {
         self.daff[1] = dout.sum();
         let dxhat = dout * self.aff[0];
         let du1 = &dxhat * &self.u2;
-        let du2 = (&dxhat * &self.u1).sum_axis(Axis(1));
         let du3 = -&self.u2 * &self.u2 * dout;
         let du4 = &du3 / (2.0 * &self.u3);
         let du5 = Array2::from_elem(self.u5.raw_dim(), 1.0) * &du4;
