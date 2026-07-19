@@ -51,7 +51,7 @@ pub fn load_mnist(
         .label_format_digit()
         .training_set_length(training_size)
         .validation_set_length(validation_size)
-        .test_set_length(10_000)
+        .test_set_length(test_size)
         .finalize();
     // trn_img,val_img,tst_imgを28*28要素づつに分け、全ての値を[0,256)から[0.0,1.0)に正規化
     let train_data = Array2::from_shape_vec((training_size as usize, 28 * 28), trn_img).unwrap();
@@ -59,7 +59,7 @@ pub fn load_mnist(
     let validation_data =
         Array2::from_shape_vec((validation_size as usize, 28 * 28), val_img).unwrap();
     let validation_data = validation_data.mapv(|x| x as f64 / 256.0);
-    let test_data = Array2::from_shape_vec((10_000, 28 * 28), tst_img).unwrap();
+    let test_data = Array2::from_shape_vec((test_size as usize, 28 * 28), tst_img).unwrap();
     let test_data = test_data.mapv(|x| x as f64 / 256.0);
     // trn_lbl,val_lbl,tst_lblをone-hot表現に変換
     let trn_lbl = Array2::from_shape_fn((training_size as usize, 10), |(i, j)| {
