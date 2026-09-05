@@ -20,6 +20,11 @@ impl SoftmaxWithLossLayer {
 
 impl Layer<Array2<f64>, f64> for SoftmaxWithLossLayer {
     fn forward(&mut self, y: &Array2<f64>) -> f64 {
+        assert_eq!(
+            y.raw_dim(),
+            self.t.raw_dim(),
+            "y.raw_dim() must equal t.raw_dim()"
+        );
         self.y = softmax_batch(y.view());
         self.loss = cross_entropy_error(self.y.view(), self.t.view());
         self.loss
@@ -56,6 +61,15 @@ mod tests {
         let loss_hundred = SoftmaxWithLossLayer::new(&t).forward(&y_hundred);
 
         assert!(loss_ten > loss_hundred);
+    }
+
+    #[test]
+    #[should_panic(expected = "y.raw_dim() must equal t.raw_dim()")]
+    fn forward_rejects_input_with_different_shape_from_target() {
+        let t = array![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+        let y = array![[1.0, 2.0, 3.0]];
+
+        SoftmaxWithLossLayer::new(&t).forward(&y);
     }
 
     #[test]
