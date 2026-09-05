@@ -29,3 +29,60 @@ impl Layer<Array2<f64>, f64> for SoftmaxWithLossLayer {
         (self.y.clone() - self.t.clone()) / batch_size
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    const H: f64 = 1e-6;
+    const EPSILON: f64 = 1e-6;
+
+    #[test]
+    fn forward_returns_non_negative_loss() {
+        let t = array![[0.0, 1.0, 0.0]];
+        let y = array![[1.0, 2.0, 3.0]];
+        let loss = SoftmaxWithLossLayer::new(&t).forward(&y);
+
+        assert!(loss >= 0.0, "expected non-negative loss, got {loss}");
+    }
+
+    #[test]
+    fn forward_loss_decreases_when_correct_class_input_increases() {
+        let t = array![[0.0, 1.0, 0.0]];
+        let y_ten = array![[1.0, 10.0, 1.0]];
+        let y_hundred = array![[1.0, 100.0, 1.0]];
+        let loss_ten = SoftmaxWithLossLayer::new(&t).forward(&y_ten);
+        let loss_hundred = SoftmaxWithLossLayer::new(&t).forward(&y_hundred);
+
+        assert!(loss_ten > loss_hundred);
+    }
+
+    #[test]
+    fn backward_matches_central_difference_for_multiple_batches() {
+        let t = array![[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
+        let y = array![[0.3, -0.2, 1.1], [-0.7, 0.8, 0.2]];
+        let mut layer = SoftmaxWithLossLayer::new(&t);
+        layer.forward(&y);
+        let gradient = layer.backward(&1.0);
+
+        for batch in 0..y.nrows() {
+            for class in 0..y.ncols() {
+                let mut y_plus = y.clone();
+                let mut y_minus = y.clone();
+                y_plus[[batch, class]] += H;
+                y_minus[[batch, class]] -= H;
+
+                let loss_plus = SoftmaxWithLossLayer::new(&t).forward(&y_plus);
+                let loss_minus = SoftmaxWithLossLayer::new(&t).forward(&y_minus);
+                let numerical_gradient = (loss_plus - loss_minus) / (2.0 * H);
+
+                assert!(
+                    (gradient[[batch, class]] - numerical_gradient).abs() < EPSILON,
+                    "gradient mismatch at [{batch}, {class}]: backward={}, numerical={numerical_gradient}",
+                    gradient[[batch, class]]
+                );
+            }
+        }
+    }
+}
