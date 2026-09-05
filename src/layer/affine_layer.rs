@@ -14,6 +14,7 @@ pub struct AffineLayer<'a> {
 
 impl<'a> AffineLayer<'a> {
     pub fn new(w: &'a Array2<f64>, b: &'a Array1<f64>) -> Self {
+        assert_eq!(w.ncols(), b.len(), "w.ncols() must equal b.len()");
         AffineLayer {
             w,
             b,
@@ -26,10 +27,21 @@ impl<'a> AffineLayer<'a> {
 
 impl<'a> Layer<Array2<f64>, Array2<f64>> for AffineLayer<'a> {
     fn forward(&mut self, x: &Array2<f64>) -> Array2<f64> {
+        assert_eq!(x.ncols(), self.w.nrows(), "x.ncols() must equal w.nrows()");
         self.x = x.clone();
         x.dot(self.w) + self.b
     }
     fn backward(&mut self, dout: &Array2<f64>) -> Array2<f64> {
+        assert_eq!(
+            dout.nrows(),
+            self.x.nrows(),
+            "dout.nrows() must equal x.nrows()"
+        );
+        assert_eq!(
+            dout.ncols(),
+            self.w.ncols(),
+            "dout.ncols() must equal w.ncols()"
+        );
         self.dw = self.x.t().dot(dout);
         self.db = dout.sum_axis(Axis(0));
         dout.dot(&self.w.t())
@@ -40,6 +52,8 @@ impl<'a> Layer<Array2<f64>, Array2<f64>> for AffineLayer<'a> {
 mod tests {
     use super::*;
     use ndarray::array;
+    use ndarray::prelude::{Array1, Array2};
+    use std::panic::AssertUnwindSafe;
 
     const H: f64 = 1e-6;
     const EPSILON: f64 = 1e-6;
@@ -49,6 +63,18 @@ mod tests {
             (actual - expected).abs() < EPSILON,
             "expected {expected}, got {actual}"
         );
+    }
+
+    fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+        payload
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| {
+                payload
+                    .downcast_ref::<&str>()
+                    .map(|message| (*message).to_owned())
+            })
+            .expect("panic payload should be a string")
     }
 
     #[test]
@@ -62,6 +88,64 @@ mod tests {
         let actual = layer.forward(&x);
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn new_rejects_bias_with_wrong_length() {
+        let w = Array2::zeros((2, 3));
+        let b = Array1::zeros(2);
+        let panic = match std::panic::catch_unwind(|| AffineLayer::new(&w, &b)) {
+            Ok(_) => panic!("expected AffineLayer::new to panic"),
+            Err(panic) => panic,
+        };
+
+        assert!(panic_message(panic).contains("w.ncols() must equal b.len()"));
+    }
+
+    #[test]
+    fn forward_rejects_input_with_wrong_width() {
+        let w = Array2::zeros((2, 3));
+        let b = Array1::zeros(3);
+        let x = Array2::zeros((4, 1));
+        let mut layer = AffineLayer::new(&w, &b);
+        let panic = match std::panic::catch_unwind(AssertUnwindSafe(|| layer.forward(&x))) {
+            Ok(_) => panic!("expected AffineLayer::forward to panic"),
+            Err(panic) => panic,
+        };
+
+        assert!(panic_message(panic).contains("x.ncols() must equal w.nrows()"));
+    }
+
+    #[test]
+    fn backward_rejects_gradient_with_wrong_batch_size() {
+        let w = Array2::zeros((2, 3));
+        let b = Array1::zeros(3);
+        let x = Array2::zeros((4, 2));
+        let dout = Array2::zeros((5, 3));
+        let mut layer = AffineLayer::new(&w, &b);
+        layer.forward(&x);
+        let panic = match std::panic::catch_unwind(AssertUnwindSafe(|| layer.backward(&dout))) {
+            Ok(_) => panic!("expected AffineLayer::backward to panic"),
+            Err(panic) => panic,
+        };
+
+        assert!(panic_message(panic).contains("dout.nrows() must equal x.nrows()"));
+    }
+
+    #[test]
+    fn backward_rejects_gradient_with_wrong_width() {
+        let w = Array2::zeros((2, 3));
+        let b = Array1::zeros(3);
+        let x = Array2::zeros((4, 2));
+        let dout = Array2::zeros((4, 2));
+        let mut layer = AffineLayer::new(&w, &b);
+        layer.forward(&x);
+        let panic = match std::panic::catch_unwind(AssertUnwindSafe(|| layer.backward(&dout))) {
+            Ok(_) => panic!("expected AffineLayer::backward to panic"),
+            Err(panic) => panic,
+        };
+
+        assert!(panic_message(panic).contains("dout.ncols() must equal w.ncols()"));
     }
 
     #[test]
