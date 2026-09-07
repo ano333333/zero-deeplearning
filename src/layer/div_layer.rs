@@ -19,7 +19,7 @@ impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for DivLayer<Dim> {
         1.0 / x
     }
     fn backward(&mut self, dout: &Array<f64, Dim>) -> Array<f64, Dim> {
-        -dout / &self.x / &self.x
+        -dout / (&self.x * &self.x)
     }
 }
 
