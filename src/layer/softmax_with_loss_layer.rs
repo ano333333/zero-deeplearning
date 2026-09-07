@@ -37,9 +37,9 @@ impl Layer<Array2<f64>, f64> for SoftmaxWithLossLayer {
         self.loss = cross_entropy_error(self.y.view(), self.t.view());
         self.loss
     }
-    fn backward(&mut self, _: &f64) -> Array2<f64> {
+    fn backward(&mut self, dout: &f64) -> Array2<f64> {
         let batch_size = self.t.shape()[0] as f64;
-        (self.y.clone() - self.t.clone()) / batch_size
+        *dout * (self.y.clone() - self.t.clone()) / batch_size
     }
 }
 
@@ -105,6 +105,24 @@ mod tests {
                     gradient[[batch, class]]
                 );
             }
+        }
+    }
+
+    #[test]
+    fn backward_scales_gradient_by_dout() {
+        let t = array![[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
+        let y = array![[0.3, -0.2, 1.1], [-0.7, 0.8, 0.2]];
+        let dout = 2.0;
+        let mut layer = SoftmaxWithLossLayer::new(&t);
+        layer.forward(&y);
+        let gradient = layer.backward(&dout);
+
+        let mut layer_unscaled = SoftmaxWithLossLayer::new(&t);
+        layer_unscaled.forward(&y);
+        let unscaled_gradient = layer_unscaled.backward(&1.0);
+
+        for (actual, expected) in gradient.iter().zip((unscaled_gradient * dout).iter()) {
+            assert!((actual - expected).abs() < EPSILON);
         }
     }
 }
