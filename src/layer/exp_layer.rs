@@ -19,6 +19,11 @@ impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for ExpLayer<Dim> {
         self.out.clone()
     }
     fn backward(&mut self, dout: &Array<f64, Dim>) -> Array<f64, Dim> {
+        assert_eq!(
+            dout.shape(),
+            self.out.shape(),
+            "dout and out must have the same shape"
+        );
         dout * &self.out
     }
 }
@@ -59,5 +64,16 @@ mod tests {
         for (actual, expected) in backward_gradient.iter().zip(numerical_gradient.iter()) {
             assert!((actual - expected).abs() < EPSILON);
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "dout and out must have the same shape")]
+    fn backward_rejects_gradient_with_different_shape_from_out() {
+        let mut layer = ExpLayer::new();
+        let x = array![[0.5, -1.0, 2.0], [4.0, -5.0, 10.0]];
+        let dout = array![[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]];
+        layer.forward(&x);
+
+        layer.backward(&dout);
     }
 }
