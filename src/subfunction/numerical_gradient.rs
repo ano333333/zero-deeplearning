@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Dimension, NdIndex};
 
+/// 多変数スカラー関数 `f` の各要素における勾配を、中心差分による数値微分で求める。
 pub fn numerical_gradient<D: Dimension>(
     f: &dyn Fn(ArrayView<f64, D>) -> f64,
     x: ArrayView<f64, D>,

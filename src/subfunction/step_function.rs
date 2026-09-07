@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Dimension};
 
+/// `x` の各要素にステップ関数を適用し、要素が正なら `1.0`、そうでなければ `0.0` を返す配列を返す。
 pub fn step_function<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
     x.mapv(|x| (x > 0.0) as i32 as f64)
 }

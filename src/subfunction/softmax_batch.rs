@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Axis, Dimension, RemoveAxis};
 
+/// `x` の先頭軸(axis 0)をバッチ次元とみなし、バッチ内の各行に独立してソフトマックス関数を適用した配列を返す。
 pub fn softmax_batch<D: Dimension + RemoveAxis>(x: ArrayView<f64, D>) -> Array<f64, D> {
     let mut res = Array::zeros(x.raw_dim());
     for i in 0..x.raw_dim()[0] {

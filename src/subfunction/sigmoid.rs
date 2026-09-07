@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Dimension};
 
+/// `x` の各要素にシグモイド関数 (`1 / (1 + exp(-x))`) を適用した配列を返す。
 pub fn sigmoid<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
     x.mapv(|x| 1.0 / (1.0 + (-x).exp()))
 }

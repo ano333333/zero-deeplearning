@@ -1,5 +1,8 @@
 use ndarray::{ArrayView, Dimension, NdIndex};
 
+/// `x` の中で最大値を持つ要素のインデックスを返す。
+///
+/// 最大値が複数存在する場合は、最初に見つかったもののインデックスを返す。
 pub fn argmax<D: Dimension>(x: ArrayView<f64, D>) -> <D as Dimension>::Pattern
 where
     <D as ndarray::Dimension>::Pattern: NdIndex<D>,

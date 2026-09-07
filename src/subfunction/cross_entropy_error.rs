@@ -1,5 +1,6 @@
 use ndarray::ArrayView2;
 
+/// 予測値 `y` と正解ラベル(one-hot) `t` の交差エントロピー誤差を、バッチ平均として返す。
 pub fn cross_entropy_error(y: ArrayView2<f64>, t: ArrayView2<f64>) -> f64 {
     let delta = 1e-7;
     let batch_size = y.raw_dim()[0];

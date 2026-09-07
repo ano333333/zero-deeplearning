@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Dimension};
 
+/// `x` の各要素に ReLU (`max(0, x)`) を適用した配列を返す。
 pub fn relu<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
     x.mapv(|x| x.max(0.0))
 }

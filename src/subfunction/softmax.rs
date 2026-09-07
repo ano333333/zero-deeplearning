@@ -1,5 +1,6 @@
 use ndarray::{Array, ArrayView, Dimension};
 
+/// `x` 全体を1つのベクトルとみなしてソフトマックス関数を適用し、合計が1になる配列を返す。
 pub fn softmax<D: Dimension>(x: ArrayView<f64, D>) -> Array<f64, D> {
     let max = x.fold(-1.0 / 0.0, |acc, &x| x.max(acc));
     let c = x.mapv(|x| (x - max).exp()).sum();
