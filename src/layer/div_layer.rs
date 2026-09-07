@@ -3,6 +3,7 @@ use ndarray::{prelude::Array, Dimension};
 
 const MIN_ABSOLUTE_VALUE: f64 = 1e-12;
 
+/// 入力の各要素の逆数 (`1 / x`) を計算する層。
 pub struct DivLayer<Dim: Dimension> {
     x: Array<f64, Dim>,
 }
@@ -16,6 +17,9 @@ impl<Dim: Dimension> DivLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for DivLayer<Dim> {
+    /// `1 / x` を要素ごとに計算して返す。
+    ///
+    /// `x` の各要素の絶対値が `MIN_ABSOLUTE_VALUE` 未満の場合はpanicする。
     fn forward(&mut self, x: &Array<f64, Dim>) -> Array<f64, Dim> {
         assert!(
             x.iter().all(|value| value.abs() >= MIN_ABSOLUTE_VALUE),
@@ -24,6 +28,7 @@ impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for DivLayer<Dim> {
         self.x = x.clone();
         1.0 / x
     }
+    /// `dout` の形状が直前の `forward` に渡した `x` の形状と異なる場合はpanicする。
     fn backward(&mut self, dout: &Array<f64, Dim>) -> Array<f64, Dim> {
         assert_eq!(
             dout.shape(),

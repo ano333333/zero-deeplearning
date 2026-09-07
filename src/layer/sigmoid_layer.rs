@@ -1,6 +1,7 @@
 use crate::layer::layer::Layer;
 use ndarray::{prelude::Array, Dimension};
 
+/// 入力の各要素にシグモイド関数 (`1 / (1 + exp(-x))`) を適用する層。
 pub struct SigmoidLayer<Dim: Dimension> {
     out: Array<f64, Dim>,
 }
@@ -14,6 +15,7 @@ impl<Dim: Dimension> SigmoidLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for SigmoidLayer<Dim> {
+    /// シグモイド関数を要素ごとに適用して返す。
     fn forward(&mut self, x: &Array<f64, Dim>) -> Array<f64, Dim> {
         self.out = x.map(|&x| 1.0 / (1.0 + (-x).exp()));
         self.out.clone()

@@ -1,6 +1,7 @@
 use crate::layer::layer::Layer;
 use ndarray::{Array, Dimension};
 
+/// 2つの入力を要素ごとに乗算する層。
 pub struct MulLayer<Dim: Dimension> {
     x: Array<f64, Dim>,
     y: Array<f64, Dim>,
@@ -16,6 +17,7 @@ impl<Dim: Dimension> MulLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<(Array<f64, Dim>, Array<f64, Dim>), Array<f64, Dim>> for MulLayer<Dim> {
+    /// `x * y` を要素ごとに計算して返す。
     fn forward(&mut self, (x, y): &(Array<f64, Dim>, Array<f64, Dim>)) -> Array<f64, Dim> {
         self.x = x.clone();
         self.y = y.clone();

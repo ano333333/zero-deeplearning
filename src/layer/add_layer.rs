@@ -1,6 +1,7 @@
 use crate::layer::layer::Layer;
 use ndarray::{prelude::Array, Dimension};
 
+/// 2つの入力を要素ごとに加算する層。
 pub struct AddLayer<Dim: Dimension> {
     _dim: Dim,
 }
@@ -14,6 +15,7 @@ impl<Dim: Dimension> AddLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<(Array<f64, Dim>, Array<f64, Dim>), Array<f64, Dim>> for AddLayer<Dim> {
+    /// `x + y` を要素ごとに計算して返す。
     fn forward(&mut self, (x, y): &(Array<f64, Dim>, Array<f64, Dim>)) -> Array<f64, Dim> {
         x + y
     }

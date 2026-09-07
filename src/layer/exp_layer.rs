@@ -1,6 +1,7 @@
 use crate::layer::layer::Layer;
 use ndarray::{prelude::Array, Dimension};
 
+/// 入力の各要素に指数関数 (`exp(x)`) を適用する層。
 pub struct ExpLayer<Dim: Dimension> {
     out: Array<f64, Dim>,
 }
@@ -14,10 +15,12 @@ impl<Dim: Dimension> ExpLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for ExpLayer<Dim> {
+    /// `exp(x)` を要素ごとに計算して返す。`backward` のために出力を保持する。
     fn forward(&mut self, x: &Array<f64, Dim>) -> Array<f64, Dim> {
         self.out = x.map(|&x| x.exp());
         self.out.clone()
     }
+    /// `dout` の形状が直前の `forward` の出力の形状と異なる場合はpanicする。
     fn backward(&mut self, dout: &Array<f64, Dim>) -> Array<f64, Dim> {
         assert_eq!(
             dout.shape(),

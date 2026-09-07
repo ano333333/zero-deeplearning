@@ -4,6 +4,9 @@ use ndarray::{
     Axis,
 };
 
+/// アフィン変換 (`x . w + b`) を行う全結合層。
+///
+/// `backward` で計算した勾配 `dw`, `db` を公開フィールドとして保持する。
 pub struct AffineLayer<'a> {
     w: &'a Array2<f64>,
     b: &'a Array1<f64>,
@@ -13,6 +16,9 @@ pub struct AffineLayer<'a> {
 }
 
 impl<'a> AffineLayer<'a> {
+    /// 重み `w` とバイアス `b` を参照するAffineLayerを生成する。
+    ///
+    /// `w.ncols()` と `b.len()` が一致しない場合はpanicする。
     pub fn new(w: &'a Array2<f64>, b: &'a Array1<f64>) -> Self {
         assert_eq!(w.ncols(), b.len(), "w.ncols() must equal b.len()");
         AffineLayer {
@@ -26,6 +32,9 @@ impl<'a> AffineLayer<'a> {
 }
 
 impl<'a> Layer<Array2<f64>, Array2<f64>> for AffineLayer<'a> {
+    /// `x . w + b` を計算して返す。`backward` のために `x` を保持する。
+    ///
+    /// `x.ncols()` が `w.nrows()` と一致しない場合はpanicする。
     fn forward(&mut self, x: &Array2<f64>) -> Array2<f64> {
         assert_eq!(x.ncols(), self.w.nrows(), "x.ncols() must equal w.nrows()");
         self.x = x.clone();

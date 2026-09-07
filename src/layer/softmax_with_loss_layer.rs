@@ -2,6 +2,10 @@ use crate::layer::layer::Layer;
 use crate::subfunction::{cross_entropy_error::cross_entropy_error, softmax_batch::softmax_batch};
 use ndarray::prelude::Array2;
 
+/// ソフトマックス関数と交差エントロピー誤差をまとめて計算する層。
+///
+/// バッチの各行をソフトマックスで確率分布に変換し、正解ラベル `t` (one-hot) との
+/// 交差エントロピー誤差(バッチ平均)を出力する。
 pub struct SoftmaxWithLossLayer {
     loss: f64,
     y: Array2<f64>,
@@ -9,6 +13,7 @@ pub struct SoftmaxWithLossLayer {
 }
 
 impl SoftmaxWithLossLayer {
+    /// 正解ラベル `t` (one-hot) を保持するSoftmaxWithLossLayerを生成する。
     pub fn new(t: &Array2<f64>) -> Self {
         SoftmaxWithLossLayer {
             loss: 0.0,
@@ -19,6 +24,9 @@ impl SoftmaxWithLossLayer {
 }
 
 impl Layer<Array2<f64>, f64> for SoftmaxWithLossLayer {
+    /// `y` の各行にソフトマックスを適用したうえで、`t` との交差エントロピー誤差(バッチ平均)を返す。
+    ///
+    /// `y` の形状が `t` の形状と異なる場合はpanicする。
     fn forward(&mut self, y: &Array2<f64>) -> f64 {
         assert_eq!(
             y.raw_dim(),

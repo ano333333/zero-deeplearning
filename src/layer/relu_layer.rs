@@ -1,6 +1,7 @@
 use crate::layer::layer::Layer;
 use ndarray::{prelude::Array, Dimension};
 
+/// 入力の各要素にReLU (`max(0, x)`) を適用する層。
 pub struct ReluLayer<Dim: Dimension> {
     mask: Array<f64, Dim>,
 }
@@ -14,6 +15,7 @@ impl<Dim: Dimension> ReluLayer<Dim> {
 }
 
 impl<Dim: Dimension> Layer<Array<f64, Dim>, Array<f64, Dim>> for ReluLayer<Dim> {
+    /// `x` の各要素が正なら `x`、そうでなければ `0` を返す。
     fn forward(&mut self, x: &Array<f64, Dim>) -> Array<f64, Dim> {
         self.mask = x.map(|&x| if x > 0.0 { 1.0 } else { 0.0 });
         x.map(|&x| if x > 0.0 { x } else { 0.0 })
