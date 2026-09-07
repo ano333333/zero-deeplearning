@@ -24,3 +24,36 @@ where
     }
     grad
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    const EPSILON: f64 = 1e-4;
+
+    #[test]
+    fn matches_analytical_gradient_of_sum_of_squares() {
+        let x = array![1.0, 2.0, -3.0];
+        let f = |x: ArrayView<f64, _>| x.iter().map(|value| value * value).sum();
+
+        let grad = numerical_gradient(&f, x.view());
+        let expected = x.mapv(|value| 2.0 * value);
+
+        for (actual, expected) in grad.iter().zip(expected.iter()) {
+            assert!((actual - expected).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn returns_zero_gradient_for_constant_function() {
+        let x = array![1.0, 2.0, -3.0];
+        let f = |_: ArrayView<f64, _>| 5.0;
+
+        let grad = numerical_gradient(&f, x.view());
+
+        for value in grad {
+            assert!(value.abs() < EPSILON);
+        }
+    }
+}

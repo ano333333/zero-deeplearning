@@ -11,3 +11,39 @@ pub fn softmax_batch<D: Dimension + RemoveAxis>(x: ArrayView<f64, D>) -> Array<f
     }
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::subfunction::softmax::softmax;
+    use ndarray::array;
+
+    const EPSILON: f64 = 1e-6;
+
+    #[test]
+    fn each_row_sums_to_one() {
+        let x = array![[0.3, 2.9, 4.0], [1.0, 1.0, 1.0]];
+
+        let out = softmax_batch(x.view());
+
+        for i in 0..out.raw_dim()[0] {
+            let row_sum: f64 = out.index_axis(Axis(0), i).sum();
+            assert!((row_sum - 1.0).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn matches_softmax_applied_to_each_row_independently() {
+        let x = array![[0.3, 2.9, 4.0], [-1.0, 0.5, 2.0]];
+
+        let batch_out = softmax_batch(x.view());
+
+        for i in 0..x.raw_dim()[0] {
+            let row = x.index_axis(Axis(0), i);
+            let expected = softmax(row);
+            for (actual, expected) in batch_out.index_axis(Axis(0), i).iter().zip(expected.iter()) {
+                assert!((actual - expected).abs() < EPSILON);
+            }
+        }
+    }
+}

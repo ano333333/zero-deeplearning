@@ -17,3 +17,36 @@ where
     }
     max_index.unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn returns_index_of_max_element_1d() {
+        let x = array![1.0, 3.0, 2.0];
+
+        let index = argmax(x.view());
+
+        assert_eq!(index, 1);
+    }
+
+    #[test]
+    fn returns_first_index_when_max_value_is_duplicated() {
+        let x = array![1.0, 3.0, 3.0, 2.0];
+
+        let index = argmax(x.view());
+
+        assert_eq!(index, 1);
+    }
+
+    #[test]
+    fn returns_index_of_max_element_2d() {
+        let x = array![[1.0, 5.0], [4.0, 2.0]];
+
+        let index = argmax(x.view());
+
+        assert_eq!(index, (0, 1));
+    }
+}
