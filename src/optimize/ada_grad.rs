@@ -1,6 +1,6 @@
 use ndarray::{Array, Dimension};
 
-use super::optimize::Optimize;
+use super::optimize::{Optimize, OptimizeFactory};
 
 pub struct AdaGrad<D: Dimension> {
     learning_rate: f64,
@@ -8,24 +8,55 @@ pub struct AdaGrad<D: Dimension> {
 }
 
 impl<D: Dimension> AdaGrad<D> {
-    pub fn new(learning_rate: f64) -> Self {
+    pub(crate) fn new(learning_rate: f64, dim: D) -> Self {
         Self {
             learning_rate,
-            h: Array::zeros(D::default()),
+            h: Array::zeros(dim),
         }
     }
 }
 
 impl<D: Dimension> Optimize<D> for AdaGrad<D> {
     fn update(&mut self, w: &mut Array<f64, D>, grad: &Array<f64, D>) {
-        // 初めての呼び出し時はhのdimが(0,0,...)なので、wの形に揃える
-        if self.h.len() == 0 {
-            self.h = Array::zeros(w.raw_dim());
-        }
         let h = &self.h + &(grad * grad);
         let h_sqrt = h.map(|x| x.sqrt() + 1e-7);
         *w -= &(grad * self.learning_rate / h_sqrt);
         self.h = h;
+    }
+}
+
+/// `AdaGrad` の生成器。母数として `learning_rate` のみを保持する。
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use ndarray::array;
+/// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
+/// use zero_deeplearning::optimize::ada_grad::AdaGradFactory;
+///
+/// let mut w = array![1.0, 2.0];
+/// let grad = array![1.0, 1.0];
+///
+/// let factory = AdaGradFactory::new(0.1);
+/// let mut ada_grad = factory.create(w.raw_dim());
+/// ada_grad.update(&mut w, &grad);
+/// ```
+pub struct AdaGradFactory {
+    learning_rate: f64,
+}
+
+impl AdaGradFactory {
+    /// 学習率 `learning_rate` を母数として持つ `AdaGradFactory` を生成する。
+    pub fn new(learning_rate: f64) -> Self {
+        Self { learning_rate }
+    }
+}
+
+impl<D: Dimension> OptimizeFactory<D> for AdaGradFactory {
+    type Optimize = AdaGrad<D>;
+    /// `dim` の形で勾配の二乗和 `h` をゼロ初期化した `AdaGrad` を生成する。
+    fn create(&self, dim: D) -> Self::Optimize {
+        AdaGrad::new(self.learning_rate, dim)
     }
 }
 
@@ -52,7 +83,7 @@ mod tests {
 
         for _ in 0..TRIALS {
             let mut w = array![rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0)];
-            let mut ada_grad = AdaGrad::new(0.1);
+            let mut ada_grad = AdaGrad::new(0.1, w.raw_dim());
             let mut recent_step_sizes: std::collections::VecDeque<f64> =
                 std::collections::VecDeque::with_capacity(WINDOW);
 
@@ -85,5 +116,21 @@ mod tests {
                 "expected point near origin, got {w:?} (distance {distance_from_origin})"
             );
         }
+    }
+
+    #[test]
+    fn factory_create_produces_optimize_with_same_learning_rate() {
+        let mut w = array![1.0, 2.0];
+        let grad = array![1.0, 1.0];
+        let factory = AdaGradFactory::new(0.1);
+
+        let mut ada_grad = factory.create(w.raw_dim());
+        ada_grad.update(&mut w, &grad);
+
+        let expected_h_sqrt = (1.0_f64).sqrt() + 1e-7;
+        assert_eq!(
+            w,
+            array![1.0 - 0.1 / expected_h_sqrt, 2.0 - 0.1 / expected_h_sqrt]
+        );
     }
 }

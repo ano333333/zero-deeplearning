@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use ndarray::{Array, Dimension};
 
-use super::optimize::Optimize;
+use super::optimize::{Optimize, OptimizeFactory};
 
 pub struct SGD<D: Dimension> {
     learning_rate: f64,
@@ -10,7 +10,7 @@ pub struct SGD<D: Dimension> {
 }
 
 impl<D: Dimension> SGD<D> {
-    pub fn new(learning_rate: f64) -> Self {
+    pub(crate) fn new(learning_rate: f64) -> Self {
         Self {
             learning_rate,
             d: PhantomData,
@@ -21,6 +21,43 @@ impl<D: Dimension> SGD<D> {
 impl<D: Dimension> Optimize<D> for SGD<D> {
     fn update(&mut self, w: &mut Array<f64, D>, grad: &Array<f64, D>) {
         *w -= &(grad * self.learning_rate);
+    }
+}
+
+/// `SGD` の生成器。母数として `learning_rate` のみを保持する。
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use ndarray::array;
+/// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
+/// use zero_deeplearning::optimize::sgd::SGDFactory;
+///
+/// let mut w = array![1.0, 2.0];
+/// let grad = array![1.0, 1.0];
+///
+/// let factory = SGDFactory::new(0.1);
+/// let mut sgd = factory.create(w.raw_dim());
+/// sgd.update(&mut w, &grad);
+///
+/// assert_eq!(w, array![0.9, 1.9]);
+/// ```
+pub struct SGDFactory {
+    learning_rate: f64,
+}
+
+impl SGDFactory {
+    /// 学習率 `learning_rate` を母数として持つ `SGDFactory` を生成する。
+    pub fn new(learning_rate: f64) -> Self {
+        Self { learning_rate }
+    }
+}
+
+impl<D: Dimension> OptimizeFactory<D> for SGDFactory {
+    type Optimize = SGD<D>;
+    /// `dim` を無視して `SGD` を生成する。
+    fn create(&self, _dim: D) -> Self::Optimize {
+        SGD::new(self.learning_rate)
     }
 }
 
@@ -80,5 +117,17 @@ mod tests {
                 "expected point near origin, got {w:?} (distance {distance_from_origin})"
             );
         }
+    }
+
+    #[test]
+    fn factory_create_produces_optimize_with_same_learning_rate() {
+        let mut w = array![1.0, 2.0];
+        let grad = array![1.0, 1.0];
+        let factory = SGDFactory::new(0.1);
+
+        let mut sgd = factory.create(w.raw_dim());
+        sgd.update(&mut w, &grad);
+
+        assert_eq!(w, array![0.9, 1.9]);
     }
 }

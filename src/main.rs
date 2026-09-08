@@ -13,9 +13,25 @@ use train::train_step;
 use two_layer_net::TwoLayerNet;
 
 use crate::mnist::load_mnist::MnistData;
-use crate::optimize::sgd::SGD;
+use crate::optimize::optimize::OptimizeFactory;
+use crate::optimize::sgd::{SGDFactory, SGD};
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
+}
+
+/// `TwoLayerNet` の5パラメータ(w1, b1, batch_aff, w2, b2)分のSGDインスタンス。
+type TwoLayerNetSgds = (SGD<Ix2>, SGD<Ix1>, SGD<Ix1>, SGD<Ix2>, SGD<Ix1>);
+
+/// `network` の各パラメータの次元に合わせて5つのSGDインスタンスを生成する。
+fn create_sgds(network: &TwoLayerNet, learning_rate: f64) -> TwoLayerNetSgds {
+    let factory = SGDFactory::new(learning_rate);
+    (
+        factory.create(network.w1.raw_dim()),
+        factory.create(network.b1.raw_dim()),
+        factory.create(network.batch_aff.raw_dim()),
+        factory.create(network.w2.raw_dim()),
+        factory.create(network.b2.raw_dim()),
+    )
 }
 
 fn main() {
@@ -75,11 +91,8 @@ fn main() {
             output_layer_size,
             &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
         );
-        let mut sgd_w1 = SGD::<Ix2>::new(learning_rate);
-        let mut sgd_b1 = SGD::<Ix1>::new(learning_rate);
-        let mut sgd_w2 = SGD::<Ix2>::new(learning_rate);
-        let mut sgd_b2 = SGD::<Ix1>::new(learning_rate);
-        let mut sgd_batch_aff = SGD::<Ix1>::new(learning_rate);
+        let (mut sgd_w1, mut sgd_b1, mut sgd_batch_aff, mut sgd_w2, mut sgd_b2) =
+            create_sgds(&network, learning_rate);
 
         // 学習
         for i in 0..iters_num_per_val {
@@ -121,11 +134,8 @@ fn main() {
         output_layer_size,
         &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
     );
-    let mut sgd_w1 = SGD::<Ix2>::new(learning_rate);
-    let mut sgd_b1 = SGD::<Ix1>::new(learning_rate);
-    let mut sgd_w2 = SGD::<Ix2>::new(learning_rate);
-    let mut sgd_b2 = SGD::<Ix1>::new(learning_rate);
-    let mut sgd_batch_aff = SGD::<Ix1>::new(learning_rate);
+    let (mut sgd_w1, mut sgd_b1, mut sgd_batch_aff, mut sgd_w2, mut sgd_b2) =
+        create_sgds(&network, learning_rate);
 
     for _ in 0..iters_num {
         let batch_mask = all_indexes

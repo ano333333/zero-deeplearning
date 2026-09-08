@@ -1,6 +1,6 @@
 use ndarray::{Array, Dimension};
 
-use super::optimize::Optimize;
+use super::optimize::{Optimize, OptimizeFactory};
 
 pub struct Momentum<D: Dimension> {
     learning_rate: f64,
@@ -9,24 +9,62 @@ pub struct Momentum<D: Dimension> {
 }
 
 impl<D: Dimension> Momentum<D> {
-    pub fn new(learning_rate: f64, momentum: f64) -> Self {
+    pub(crate) fn new(learning_rate: f64, momentum: f64, dim: D) -> Self {
         Self {
             learning_rate,
             momentum,
-            v: Array::zeros(D::default()),
+            v: Array::zeros(dim),
         }
     }
 }
 
 impl<D: Dimension> Optimize<D> for Momentum<D> {
     fn update(&mut self, w: &mut Array<f64, D>, grad: &Array<f64, D>) {
-        // 初めての呼び出し時vのdimは(0,0,...)なので、wの形に揃える
-        if self.v.len() == 0 {
-            self.v = Array::zeros(w.raw_dim());
-        }
         let v = self.momentum * &self.v - self.learning_rate * grad;
         *w += &v;
         self.v = v;
+    }
+}
+
+/// `Momentum` の生成器。母数として `learning_rate` と `momentum` を保持する。
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use ndarray::array;
+/// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
+/// use zero_deeplearning::optimize::momentum::MomentumFactory;
+///
+/// let mut w = array![1.0, 2.0];
+/// let grad = array![1.0, 1.0];
+///
+/// let factory = MomentumFactory::new(0.1, 0.9);
+/// let mut momentum = factory.create(w.raw_dim());
+/// momentum.update(&mut w, &grad);
+///
+/// assert_eq!(w, array![0.9, 1.9]);
+/// ```
+pub struct MomentumFactory {
+    learning_rate: f64,
+    momentum: f64,
+}
+
+impl MomentumFactory {
+    /// 学習率 `learning_rate` と momentum係数 `momentum` を母数として持つ
+    /// `MomentumFactory` を生成する。
+    pub fn new(learning_rate: f64, momentum: f64) -> Self {
+        Self {
+            learning_rate,
+            momentum,
+        }
+    }
+}
+
+impl<D: Dimension> OptimizeFactory<D> for MomentumFactory {
+    type Optimize = Momentum<D>;
+    /// `dim` の形で速度 `v` をゼロ初期化した `Momentum` を生成する。
+    fn create(&self, dim: D) -> Self::Optimize {
+        Momentum::new(self.learning_rate, self.momentum, dim)
     }
 }
 
@@ -53,7 +91,7 @@ mod tests {
 
         for _ in 0..TRIALS {
             let mut w = array![rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0)];
-            let mut momentum = Momentum::new(0.1, 0.9);
+            let mut momentum = Momentum::new(0.1, 0.9, w.raw_dim());
             let mut recent_step_sizes: std::collections::VecDeque<f64> =
                 std::collections::VecDeque::with_capacity(WINDOW);
 
@@ -86,5 +124,17 @@ mod tests {
                 "expected point near origin, got {w:?} (distance {distance_from_origin})"
             );
         }
+    }
+
+    #[test]
+    fn factory_create_produces_optimize_with_same_parameters() {
+        let mut w = array![1.0, 2.0];
+        let grad = array![1.0, 1.0];
+        let factory = MomentumFactory::new(0.1, 0.9);
+
+        let mut momentum = factory.create(w.raw_dim());
+        momentum.update(&mut w, &grad);
+
+        assert_eq!(w, array![0.9, 1.9]);
     }
 }
