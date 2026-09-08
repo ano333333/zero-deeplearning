@@ -10,6 +10,31 @@ pub struct MnistData {
     pub test_labels: Array2<f64>,
 }
 
+impl MnistData {
+    /// `data`, `labels` から `indexes` で指定した行を取り出し、(データ, ラベル)のペアとして返す。
+    fn batch(data: &Array2<f64>, labels: &Array2<f64>, indexes: &[usize]) -> (Array2<f64>, Array2<f64>) {
+        (
+            data.select(Axis(0), indexes),
+            labels.select(Axis(0), indexes),
+        )
+    }
+
+    /// `indexes` で指定した行の訓練データ・訓練ラベルを取り出す。
+    pub fn train_batch(&self, indexes: &[usize]) -> (Array2<f64>, Array2<f64>) {
+        Self::batch(&self.train_data, &self.train_labels, indexes)
+    }
+
+    /// `indexes` で指定した行の検証データ・検証ラベルを取り出す。
+    pub fn validation_batch(&self, indexes: &[usize]) -> (Array2<f64>, Array2<f64>) {
+        Self::batch(&self.validation_data, &self.validation_labels, indexes)
+    }
+
+    /// `indexes` で指定した行のテストデータ・テストラベルを取り出す。
+    pub fn test_batch(&self, indexes: &[usize]) -> (Array2<f64>, Array2<f64>) {
+        Self::batch(&self.test_data, &self.test_labels, indexes)
+    }
+}
+
 /// MNISTデータセットを読み込む
 ///
 /// MNISTデータセットを読み込み、訓練データ、訓練ラベル、検証データ、検証ラベルの4つの配列を返す。
@@ -159,6 +184,48 @@ mod tests {
         assert_eq!(mnist_data.validation_labels[[0, 1]], 1.0);
         assert_eq!(mnist_data.test_labels[[0, 4]], 1.0);
         assert_eq!(mnist_data.test_labels[[1, 9]], 1.0);
+    }
+
+    #[test]
+    fn train_batch_selects_specified_rows_in_order() {
+        let workspace = TestWorkspace::new();
+        write_fixture(&workspace.path).unwrap();
+        let mnist_data = load_mnist(Some(workspace.as_str()), Some(2), Some(1), Some(2));
+
+        let (data, labels) = mnist_data.train_batch(&[1, 0]);
+
+        assert_eq!(data.dim(), (2, 28 * 28));
+        assert_eq!(labels.dim(), (2, 10));
+        assert_eq!(data[[0, 0]], mnist_data.train_data[[1, 0]]);
+        assert_eq!(data[[1, 0]], mnist_data.train_data[[0, 0]]);
+        assert_eq!(labels.row(0), mnist_data.train_labels.row(1));
+        assert_eq!(labels.row(1), mnist_data.train_labels.row(0));
+    }
+
+    #[test]
+    fn validation_batch_selects_specified_rows() {
+        let workspace = TestWorkspace::new();
+        write_fixture(&workspace.path).unwrap();
+        let mnist_data = load_mnist(Some(workspace.as_str()), Some(2), Some(1), Some(2));
+
+        let (data, labels) = mnist_data.validation_batch(&[0]);
+
+        assert_eq!(data, mnist_data.validation_data);
+        assert_eq!(labels, mnist_data.validation_labels);
+    }
+
+    #[test]
+    fn test_batch_selects_specified_rows_in_order() {
+        let workspace = TestWorkspace::new();
+        write_fixture(&workspace.path).unwrap();
+        let mnist_data = load_mnist(Some(workspace.as_str()), Some(2), Some(1), Some(2));
+
+        let (data, labels) = mnist_data.test_batch(&[1, 0]);
+
+        assert_eq!(data[[0, 0]], mnist_data.test_data[[1, 0]]);
+        assert_eq!(data[[1, 0]], mnist_data.test_data[[0, 0]]);
+        assert_eq!(labels.row(0), mnist_data.test_labels.row(1));
+        assert_eq!(labels.row(1), mnist_data.test_labels.row(0));
     }
 
     fn write_fixture(dir: &Path) -> io::Result<()> {

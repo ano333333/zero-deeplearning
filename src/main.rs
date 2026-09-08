@@ -4,7 +4,6 @@ mod optimize;
 mod subfunction;
 mod train;
 mod two_layer_net;
-use ndarray::prelude::*;
 use ndarray_rand::rand;
 use ndarray_rand::rand::seq::IteratorRandom;
 use ndarray_rand::rand::Rng;
@@ -12,7 +11,6 @@ use ndarray_rand::rand_distr::Normal;
 use train::{create_optimizers, train_step};
 use two_layer_net::TwoLayerNet;
 
-use crate::mnist::load_mnist::MnistData;
 use crate::optimize::sgd::SGDFactory;
 fn separator() -> String {
     (0..20).map(|_| "-").collect::<String>()
@@ -24,14 +22,7 @@ fn main() {
     let input_layer_size = 28 * 28;
     let hidden_layer_size = 50;
     let output_layer_size = 10;
-    let MnistData {
-        train_data: x_train,
-        train_labels: t_train,
-        validation_data: x_val,
-        validation_labels: t_val,
-        test_data: x_test,
-        test_labels: t_test,
-    } = mnist::load_mnist::load_mnist(
+    let mnist_data = mnist::load_mnist::load_mnist(
         None,
         Some(training_size),
         Some(validation_size),
@@ -81,8 +72,7 @@ fn main() {
         // 学習
         for i in 0..iters_num_per_val {
             let batch_mask = &indexes[i];
-            let x_batch = x_train.select(Axis(0), &batch_mask);
-            let t_batch = t_train.select(Axis(0), &batch_mask);
+            let (x_batch, t_batch) = mnist_data.train_batch(batch_mask);
 
             train_step(
                 &mut network,
@@ -93,8 +83,8 @@ fn main() {
             );
         }
         // 検証データで評価
-        let val_loss = network.loss(&x_val, &t_val);
-        let val_acc = network.accuracy(&x_val, &t_val);
+        let val_loss = network.loss(&mnist_data.validation_data, &mnist_data.validation_labels);
+        let val_acc = network.accuracy(&mnist_data.validation_data, &mnist_data.validation_labels);
         println!("val_loss: {:?}, val_acc: {:?}", val_loss, val_acc);
         println!("{}", separator());
         val_results.push((val_loss, learning_rate, weight_decay));
@@ -124,8 +114,7 @@ fn main() {
             .iter()
             .map(|&i| *i)
             .collect::<Vec<usize>>();
-        let x_batch = x_train.select(Axis(0), &batch_mask);
-        let t_batch = t_train.select(Axis(0), &batch_mask);
+        let (x_batch, t_batch) = mnist_data.train_batch(&batch_mask);
 
         train_step(
             &mut network,
@@ -136,7 +125,7 @@ fn main() {
         );
     }
     // テストデータで評価
-    let test_loss = network.loss(&x_test, &t_test);
-    let test_acc = network.accuracy(&x_test, &t_test);
+    let test_loss = network.loss(&mnist_data.test_data, &mnist_data.test_labels);
+    let test_acc = network.accuracy(&mnist_data.test_data, &mnist_data.test_labels);
     println!("test_loss: {:?}, test_acc: {:?}", test_loss, test_acc);
 }
