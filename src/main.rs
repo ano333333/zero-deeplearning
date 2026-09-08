@@ -2,13 +2,14 @@ mod layer;
 mod mnist;
 mod optimize;
 mod subfunction;
+mod train;
 mod two_layer_net;
 use ndarray::prelude::*;
 use ndarray_rand::rand;
 use ndarray_rand::rand::seq::IteratorRandom;
 use ndarray_rand::rand::Rng;
 use ndarray_rand::rand_distr::Normal;
-use optimize::optimize::Optimize;
+use train::train_step;
 use two_layer_net::TwoLayerNet;
 
 use crate::mnist::load_mnist::MnistData;
@@ -86,17 +87,17 @@ fn main() {
             let x_batch = x_train.select(Axis(0), &batch_mask);
             let t_batch = t_train.select(Axis(0), &batch_mask);
 
-            let mut grad = network.gradient(&x_batch, &t_batch);
-            grad.dw1 = weight_decay * &network.w1 + &grad.dw1;
-            grad.dw2 = weight_decay * &network.w2 + &grad.dw2;
-            grad.db1 = weight_decay * &network.b1 + &grad.db1;
-            grad.db2 = weight_decay * &network.b2 + &grad.db2;
-            grad.dbatch_aff = weight_decay * &network.batch_aff + &grad.dbatch_aff;
-            sgd_w1.update(&mut network.w1, &grad.dw1);
-            sgd_b1.update(&mut network.b1, &grad.db1);
-            sgd_batch_aff.update(&mut network.batch_aff, &grad.dbatch_aff);
-            sgd_w2.update(&mut network.w2, &grad.dw2);
-            sgd_b2.update(&mut network.b2, &grad.db2);
+            train_step(
+                &mut network,
+                &x_batch,
+                &t_batch,
+                weight_decay,
+                &mut sgd_w1,
+                &mut sgd_b1,
+                &mut sgd_batch_aff,
+                &mut sgd_w2,
+                &mut sgd_b2,
+            );
         }
         // 検証データで評価
         let val_loss = network.loss(&x_val, &t_val);
@@ -136,17 +137,17 @@ fn main() {
         let x_batch = x_train.select(Axis(0), &batch_mask);
         let t_batch = t_train.select(Axis(0), &batch_mask);
 
-        let mut grad = network.gradient(&x_batch, &t_batch);
-        grad.dw1 = weight_decay * &network.w1 + &grad.dw1;
-        grad.dw2 = weight_decay * &network.w2 + &grad.dw2;
-        grad.db1 = weight_decay * &network.b1 + &grad.db1;
-        grad.db2 = weight_decay * &network.b2 + &grad.db2;
-        grad.dbatch_aff = weight_decay * &network.batch_aff + &grad.dbatch_aff;
-        sgd_w1.update(&mut network.w1, &grad.dw1);
-        sgd_b1.update(&mut network.b1, &grad.db1);
-        sgd_batch_aff.update(&mut network.batch_aff, &grad.dbatch_aff);
-        sgd_w2.update(&mut network.w2, &grad.dw2);
-        sgd_b2.update(&mut network.b2, &grad.db2);
+        train_step(
+            &mut network,
+            &x_batch,
+            &t_batch,
+            weight_decay,
+            &mut sgd_w1,
+            &mut sgd_b1,
+            &mut sgd_batch_aff,
+            &mut sgd_w2,
+            &mut sgd_b2,
+        );
     }
     // テストデータで評価
     let test_loss = network.loss(&x_test, &t_test);
