@@ -12,7 +12,11 @@ pub struct MnistData {
 
 impl MnistData {
     /// `data`, `labels` から `indexes` で指定した行を取り出し、(データ, ラベル)のペアとして返す。
-    fn batch(data: &Array2<f64>, labels: &Array2<f64>, indexes: &[usize]) -> (Array2<f64>, Array2<f64>) {
+    fn batch(
+        data: &Array2<f64>,
+        labels: &Array2<f64>,
+        indexes: &[usize],
+    ) -> (Array2<f64>, Array2<f64>) {
         (
             data.select(Axis(0), indexes),
             labels.select(Axis(0), indexes),
