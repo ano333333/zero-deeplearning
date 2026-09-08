@@ -139,6 +139,11 @@ mod tests {
     /// `data/` に配置された実MNISTデータセットを要求する。データが無い環境では
     /// 失敗するため、通常の `cargo test` では実行されないよう `#[ignore]` を
     /// 付けている。実行するには `cargo test -- --ignored` を使う。
+    ///
+    /// 小サイズの固定訓練データ(50件)でフルバッチ学習を合計300イテレート行い、
+    /// 100イテレートごとにテストデータ(20件)でのlossを測定して、単調に
+    /// 減少していることを確認する。あわせて、学習開始前と終了後のテストデータ
+    /// でのaccuracyも測定し、学習によって上昇していることを確認する。
     #[test]
     #[ignore]
     fn e2e_loss_decreases_as_training_progresses() {
@@ -160,6 +165,9 @@ mod tests {
         let sgd_factory = SGDFactory::new(learning_rate);
         let mut optimizers = create_optimizers(&network, &sgd_factory);
 
+        let initial_test_accuracy =
+            network.accuracy(&mnist_data.test_data, &mnist_data.test_labels);
+
         let mut test_losses = Vec::new();
         for i in 1..=300 {
             train_step(&mut network, &x_train, &t_train, 0.0, &mut optimizers);
@@ -180,6 +188,15 @@ mod tests {
             test_losses[1] > test_losses[2],
             "expected loss to decrease between iteration 200 and 300, got {:?}",
             test_losses
+        );
+
+        let final_test_accuracy =
+            network.accuracy(&mnist_data.test_data, &mnist_data.test_labels);
+        assert!(
+            final_test_accuracy > initial_test_accuracy,
+            "expected accuracy to improve after training, got {} -> {}",
+            initial_test_accuracy,
+            final_test_accuracy
         );
     }
 }
