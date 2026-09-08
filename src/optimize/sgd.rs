@@ -53,10 +53,10 @@ impl SGDFactory {
     }
 }
 
-impl<D: Dimension> OptimizeFactory<D> for SGDFactory {
-    type Optimize = SGD<D>;
+impl OptimizeFactory for SGDFactory {
+    type Optimize<D: Dimension> = SGD<D>;
     /// `dim` を無視して `SGD` を生成する。
-    fn create(&self, _dim: D) -> Self::Optimize {
+    fn create<D: Dimension>(&self, _dim: D) -> Self::Optimize<D> {
         SGD::new(self.learning_rate)
     }
 }

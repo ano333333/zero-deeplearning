@@ -60,10 +60,10 @@ impl MomentumFactory {
     }
 }
 
-impl<D: Dimension> OptimizeFactory<D> for MomentumFactory {
-    type Optimize = Momentum<D>;
+impl OptimizeFactory for MomentumFactory {
+    type Optimize<D: Dimension> = Momentum<D>;
     /// `dim` の形で速度 `v` をゼロ初期化した `Momentum` を生成する。
-    fn create(&self, dim: D) -> Self::Optimize {
+    fn create<D: Dimension>(&self, dim: D) -> Self::Optimize<D> {
         Momentum::new(self.learning_rate, self.momentum, dim)
     }
 }

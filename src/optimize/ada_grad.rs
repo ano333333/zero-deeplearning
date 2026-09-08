@@ -52,10 +52,10 @@ impl AdaGradFactory {
     }
 }
 
-impl<D: Dimension> OptimizeFactory<D> for AdaGradFactory {
-    type Optimize = AdaGrad<D>;
+impl OptimizeFactory for AdaGradFactory {
+    type Optimize<D: Dimension> = AdaGrad<D>;
     /// `dim` の形で勾配の二乗和 `h` をゼロ初期化した `AdaGrad` を生成する。
-    fn create(&self, dim: D) -> Self::Optimize {
+    fn create<D: Dimension>(&self, dim: D) -> Self::Optimize<D> {
         AdaGrad::new(self.learning_rate, dim)
     }
 }
