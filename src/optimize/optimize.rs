@@ -13,8 +13,8 @@ pub trait Optimize<D: Dimension> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use ndarray::{array, Ix1};
+/// ```
+/// use ndarray::array;
 /// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
 /// use zero_deeplearning::optimize::sgd::SGDFactory;
 ///

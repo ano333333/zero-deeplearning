@@ -20,11 +20,13 @@ pub struct TwoLayerNetOptimizers<F: OptimizeFactory> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```
+/// use ndarray_rand::rand_distr::Normal;
 /// use zero_deeplearning::optimize::sgd::SGDFactory;
 /// use zero_deeplearning::train::create_optimizers;
+/// use zero_deeplearning::two_layer_net::TwoLayerNet;
 ///
-/// let network = TwoLayerNet::new(784, 50, 10, &dist);
+/// let network = TwoLayerNet::new(784, 50, 10, &Normal::new(0.0, 1.0).unwrap());
 /// let factory = SGDFactory::new(0.1);
 /// let optimizers = create_optimizers(&network, &factory);
 /// ```

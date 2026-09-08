@@ -28,7 +28,7 @@ impl<D: Dimension> Optimize<D> for SGD<D> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```
 /// use ndarray::array;
 /// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
 /// use zero_deeplearning::optimize::sgd::SGDFactory;

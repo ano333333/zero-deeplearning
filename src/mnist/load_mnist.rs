@@ -55,8 +55,10 @@ impl MnistData {
 /// * `MnistData` - 訓練データ、訓練ラベル、検証データ、検証ラベル、テストデータ、テストラベル。
 ///
 /// # Examples
-/// ```
-///     let mnist_data = mnist::load_mnist::load_mnist(None, None, None, None);
+/// ```no_run
+/// use zero_deeplearning::mnist::load_mnist::load_mnist;
+///
+/// let mnist_data = load_mnist(None, None, None, None);
 /// ```
 pub fn load_mnist(
     base_path: Option<&str>,

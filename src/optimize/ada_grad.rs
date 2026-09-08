@@ -29,7 +29,7 @@ impl<D: Dimension> Optimize<D> for AdaGrad<D> {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```
 /// use ndarray::array;
 /// use zero_deeplearning::optimize::optimize::{Optimize, OptimizeFactory};
 /// use zero_deeplearning::optimize::ada_grad::AdaGradFactory;

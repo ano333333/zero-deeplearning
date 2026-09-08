@@ -2,7 +2,7 @@
 
 書籍「ゼロから作る Deep Learning」の Python 実装サンプルを Rust に移植した学習用リポジトリです。
 
-`ndarray` を使って行列演算、活性化関数、レイヤ、最適化手法、MNIST の読み込み、2 層ニューラルネットワークを実装しています。現在の `main.rs` は MNIST の手書き数字分類を題材に、2 層ネットワークのハイパーパラメータ探索と最終評価を実行します。
+`ndarray` を使って行列演算、活性化関数、レイヤ、最適化手法、MNIST の読み込み、2 層ニューラルネットワークを実装したライブラリです。`examples/train.rs` に、MNIST の手書き数字分類を題材とした 2 層ネットワークのハイパーパラメータ探索と最終評価のサンプルを収録しています。
 
 ## 必要なもの
 
@@ -47,23 +47,23 @@ data/t10k-labels-idx1-ubyte
 
 ## 実行
 
-通常の Rust 環境では次を実行します。
+学習過程のサンプルは `examples/train.rs` にあります。通常の Rust 環境では次を実行します。
 
 ```sh
-cargo run --release
+cargo run --release --example train
 ```
 
 Nix 環境では次のように実行できます。
 
 ```sh
-nix develop -c cargo run --release
+nix develop -c cargo run --release --example train
 ```
 
-`main.rs` は計算量がそれなりにあるため、`--release` での実行を推奨します。
+計算量がそれなりにあるため、`--release` での実行を推奨します。
 
-## `main.rs` の処理内容
+## `examples/train.rs` の処理内容
 
-現在の `main.rs` は、MNIST を使って次の流れを実行します。
+`examples/train.rs` は、MNIST を使って次の流れを実行します。
 
 1. MNIST を読み込む
    - 訓練データ: 50,000 件
@@ -142,17 +142,23 @@ Affine -> BatchNormalization -> ReLU -> Affine
 
 ```text
 src/
-  main.rs                 MNIST 学習・検証・テストの実行エントリ
+  lib.rs                  クレートのルート(各モジュールのpub mod宣言)
   two_layer_net.rs        2 層ニューラルネットワーク
+  train.rs                学習の1イテレーション(gradient算出 -> 正則化 -> optimize)
   mnist/                  MNIST 読み込み
   subfunction/            sigmoid, relu, softmax, cross entropy など
   layer/                  affine, relu, sigmoid, batch normalization など
   optimize/               SGD, Momentum, AdaGrad
+examples/
+  train.rs                MNIST 学習・検証・テストの実行サンプル
+tests/
+  e2e.rs                  TwoLayerNetとtrain_stepを通したE2Eテスト(#[ignore])
 ```
 
 ## 注意
 
 - このリポジトリは学習用の移植実装です。実用向けの深層学習フレームワークではありません。
-- `main.rs` の実行には MNIST データセットが必要です。
+- `examples/train.rs` の実行には MNIST データセットが必要です。
 - `cargo run` の debug build は遅くなるため、学習実行には `cargo run --release` を推奨します。
 - 現在の `gradient` 実装はコード上の挙動をそのまま反映したものです。バッチ正規化まわりを検証・改修する場合は、`src/two_layer_net.rs` と `src/layer/batch_normalization_layer.rs` を確認してください。
+- `tests/e2e.rs` のE2Eテストは実MNISTデータセットを要求するため、通常の `cargo test` では実行されません(`#[ignore]`)。実行するには `cargo test -- --ignored` を使ってください。
