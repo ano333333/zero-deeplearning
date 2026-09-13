@@ -39,7 +39,7 @@ fn main() {
     let iters_num_per_val = 500;
 
     let all_indexes = (0..(training_size as usize)).collect::<Vec<usize>>();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     // 各イテレートで用いる学習データのインデックスを固定化する
     let indexes = (0..iters_num_per_val)
         .map(|_| {
@@ -58,8 +58,8 @@ fn main() {
     // (バリデーションデータでのloss, learning_rate, weight_decay)のarray
     let mut val_results = Vec::<(f64, f64, f64)>::new();
     for i_val in 0..20 {
-        let learning_rate = (10.0_f64).powf(rng.gen_range(-6.0..-2.0));
-        let weight_decay = (10.0_f64).powf(rng.gen_range(-16.0..-8.0));
+        let learning_rate = (10.0_f64).powf(rng.random_range(-6.0..-2.0));
+        let weight_decay = (10.0_f64).powf(rng.random_range(-16.0..-8.0));
         println!(
             "start iterate: {}\nlearning_rate: {}\nweight_decay: {}",
             i_val, learning_rate, weight_decay

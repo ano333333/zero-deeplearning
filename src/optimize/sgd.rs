@@ -83,7 +83,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(42);
 
         for _ in 0..TRIALS {
-            let mut w = array![rng.gen_range(-10.0..10.0), rng.gen_range(-10.0..10.0)];
+            let mut w = array![rng.random_range(-10.0..10.0), rng.random_range(-10.0..10.0)];
             let mut sgd = SGD::new(0.1);
             let mut recent_step_sizes: std::collections::VecDeque<f64> =
                 std::collections::VecDeque::with_capacity(WINDOW);
