@@ -142,6 +142,7 @@ Affine -> BatchNormalization -> ReLU -> Affine
 - `gradient(...)`: 誤差逆伝播で各パラメータの勾配を返す
 - `save_npz(...)`: パラメータをNPZファイルに保存する
 - `load_npz(...)`: NPZファイルからネットワークを復元する
+- `load_npz_bytes(...)`: NPZ形式のバイト列からネットワークを復元する
 
 NPZファイルには形式バージョンと `w1`, `b1`, `batch_aff`, `w2`, `b2` の
 名前付き配列を保存します。読み込み時には形式バージョンと各配列のshapeの整合性を

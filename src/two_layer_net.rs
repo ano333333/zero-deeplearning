@@ -126,7 +126,22 @@ impl TwoLayerNet {
     /// NPZファイルからパラメータを読み込み、ネットワークを復元する。
     pub fn load_npz(path: impl AsRef<Path>) -> Result<Self, TwoLayerNetIoError> {
         let file = File::open(path)?;
-        let mut npz = NpzReader::new(file)?;
+        Self::load_npz_reader(file)
+    }
+
+    /// NPZ形式のバイト列からパラメータを読み込み、ネットワークを復元する。
+    ///
+    /// WASMではJavaScript側で取得した`ArrayBuffer`を`&[u8]`として渡すことで、
+    /// ファイルシステムを介さずにモデルを読み込める。
+    pub fn load_npz_bytes(bytes: &[u8]) -> Result<Self, TwoLayerNetIoError> {
+        Self::load_npz_reader(io::Cursor::new(bytes))
+    }
+
+    fn load_npz_reader<R>(reader: R) -> Result<Self, TwoLayerNetIoError>
+    where
+        R: io::Read + io::Seek,
+    {
+        let mut npz = NpzReader::new(reader)?;
 
         let format_version: Array0<u32> = npz.by_name("format_version")?;
         if format_version[()] != MODEL_FORMAT_VERSION {
@@ -297,6 +312,29 @@ mod tests {
 
         expected.save_npz(&path.0).unwrap();
         let actual = TwoLayerNet::load_npz(&path.0).unwrap();
+
+        assert_eq!(actual.w1, expected.w1);
+        assert_eq!(actual.b1, expected.b1);
+        assert_eq!(actual.batch_aff, expected.batch_aff);
+        assert_eq!(actual.w2, expected.w2);
+        assert_eq!(actual.b2, expected.b2);
+    }
+
+    #[test]
+    fn load_npz_bytes_restores_network_without_file_access() {
+        let expected = network_with_known_parameters();
+        let cursor = io::Cursor::new(Vec::new());
+        let mut npz = NpzWriter::new(cursor);
+        npz.add_array("format_version", &arr0(MODEL_FORMAT_VERSION))
+            .unwrap();
+        npz.add_array("w1", &expected.w1).unwrap();
+        npz.add_array("b1", &expected.b1).unwrap();
+        npz.add_array("batch_aff", &expected.batch_aff).unwrap();
+        npz.add_array("w2", &expected.w2).unwrap();
+        npz.add_array("b2", &expected.b2).unwrap();
+        let bytes = npz.finish().unwrap().into_inner();
+
+        let actual = TwoLayerNet::load_npz_bytes(&bytes).unwrap();
 
         assert_eq!(actual.w1, expected.w1);
         assert_eq!(actual.b1, expected.b1);
