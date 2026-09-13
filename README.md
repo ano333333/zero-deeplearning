@@ -94,7 +94,9 @@ nix develop -c cargo run --release --example train
    - optimizer: SGD
    - weight decay を勾配に加算
 
-6. テストデータで loss / accuracy を表示する
+6. 学習済みパラメータを `two_layer_net.npz` に保存し、読み戻す
+
+7. 読み戻したネットワークを使い、テストデータで loss / accuracy を表示する
 
 実行中は、おおむね次の形式でログが出力されます。
 
@@ -107,6 +109,7 @@ val_loss: ..., val_acc: ...
 ...
 val_results: [...]
 choice: (...)
+saved and loaded model: two_layer_net.npz
 test_loss: ..., test_acc: ...
 ```
 
@@ -137,6 +140,12 @@ Affine -> BatchNormalization -> ReLU -> Affine
 - `loss(...)`: softmax cross entropy loss を返す
 - `accuracy(...)`: one-hot ラベルと予測クラスを比較して正解率を返す
 - `gradient(...)`: 誤差逆伝播で各パラメータの勾配を返す
+- `save_npz(...)`: パラメータをNPZファイルに保存する
+- `load_npz(...)`: NPZファイルからネットワークを復元する
+
+NPZファイルには形式バージョンと `w1`, `b1`, `batch_aff`, `w2`, `b2` の
+名前付き配列を保存します。読み込み時には形式バージョンと各配列のshapeの整合性を
+検証します。
 
 ## ディレクトリ構成
 

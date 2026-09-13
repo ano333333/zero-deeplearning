@@ -129,6 +129,14 @@ fn main() {
             &mut optimizers,
         );
     }
+
+    let model_path = "two_layer_net.npz";
+    network
+        .save_npz(model_path)
+        .expect("failed to save trained model");
+    let mut network = TwoLayerNet::load_npz(model_path).expect("failed to load trained model");
+    println!("saved and loaded model: {model_path}");
+
     // テストデータで評価
     let test_loss = network.loss(&mnist_data.test_data, &mnist_data.test_labels);
     let test_acc = network.accuracy(&mnist_data.test_data, &mnist_data.test_labels);
