@@ -135,7 +135,7 @@ Affine -> BatchNormalization -> ReLU -> Affine
 
 主なメソッドは次の通りです。
 
-- `new(...)`: 重みとバイアスを初期化する
+- `new(..., randomizer)`: 指定したクロージャーで重みとバイアスを初期化する
 - `predict(...)`: forward 計算を行う
 - `loss(...)`: softmax cross entropy loss を返す
 - `accuracy(...)`: one-hot ラベルと予測クラスを比較して正解率を返す

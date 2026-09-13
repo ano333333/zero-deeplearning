@@ -4,7 +4,10 @@
 //! 失敗するため、通常の `cargo test` では実行されないよう `#[ignore]` を
 //! 付けている。実行するには `cargo test -- --ignored` を使う。
 
-use ndarray_rand::rand_distr::Normal;
+use ndarray_rand::{
+    rand,
+    rand_distr::{Distribution, Normal},
+};
 use zero_deeplearning::optimize::sgd::SGDFactory;
 use zero_deeplearning::train::{create_optimizers, train_step};
 use zero_deeplearning::two_layer_net::TwoLayerNet;
@@ -26,11 +29,13 @@ fn e2e_loss_decreases_as_training_progresses() {
     let train_indexes = (0..50).collect::<Vec<usize>>();
     let (x_train, t_train) = mnist_data.train_batch(&train_indexes);
 
+    let mut rng = rand::rng();
+    let normal = Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap();
     let mut network = TwoLayerNet::new(
         input_layer_size,
         hidden_layer_size,
         output_layer_size,
-        &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+        || normal.sample(&mut rng),
     );
     let sgd_factory = SGDFactory::new(learning_rate);
     let mut optimizers = create_optimizers(&network, &sgd_factory);

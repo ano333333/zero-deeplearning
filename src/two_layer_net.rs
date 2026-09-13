@@ -2,7 +2,6 @@ use std::{error::Error, fmt, fs::File, io, path::Path};
 
 use ndarray::prelude::*;
 use ndarray_npy::{NpzReader, NpzWriter, ReadNpzError, WriteNpzError};
-use ndarray_rand::{rand_distr::Distribution, RandomExt};
 
 use crate::{
     layer::{
@@ -92,12 +91,12 @@ impl TwoLayerNet {
         input_size: usize,
         hidden_size: usize,
         output_size: usize,
-        dist: &impl Distribution<f64>,
+        mut randomizer: impl FnMut() -> f64,
     ) -> Self {
-        let w1 = Array2::random((input_size, hidden_size), &dist);
-        let b1 = Array1::random(hidden_size, &dist);
-        let w2 = Array2::random((hidden_size, output_size), &dist);
-        let b2 = Array1::random(output_size, &dist);
+        let w1 = Array2::from_shape_fn((input_size, hidden_size), |_| randomizer());
+        let b1 = Array1::from_shape_fn(hidden_size, |_| randomizer());
+        let w2 = Array2::from_shape_fn((hidden_size, output_size), |_| randomizer());
+        let b2 = Array1::from_shape_fn(output_size, |_| randomizer());
         TwoLayerNet {
             w1,
             b1,
@@ -303,6 +302,22 @@ mod tests {
             w2: array![[9.0, 10.0], [11.0, 12.0]],
             b2: array![13.0, 14.0],
         }
+    }
+
+    #[test]
+    fn new_initializes_each_parameter_with_randomizer() {
+        let mut next = 0.0;
+
+        let network = TwoLayerNet::new(2, 3, 2, || {
+            next += 1.0;
+            next
+        });
+
+        assert_eq!(network.w1, array![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+        assert_eq!(network.b1, array![7.0, 8.0, 9.0]);
+        assert_eq!(network.batch_aff, array![1.0, 0.0]);
+        assert_eq!(network.w2, array![[10.0, 11.0], [12.0, 13.0], [14.0, 15.0]]);
+        assert_eq!(network.b2, array![16.0, 17.0]);
     }
 
     #[test]

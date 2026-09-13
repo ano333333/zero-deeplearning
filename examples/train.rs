@@ -12,7 +12,7 @@
 use ndarray_rand::rand;
 use ndarray_rand::rand::seq::IteratorRandom;
 use ndarray_rand::rand::Rng;
-use ndarray_rand::rand_distr::Normal;
+use ndarray_rand::rand_distr::{Distribution, Normal};
 use zero_deeplearning::optimize::sgd::SGDFactory;
 use zero_deeplearning::train::{create_optimizers, train_step};
 use zero_deeplearning::two_layer_net::TwoLayerNet;
@@ -65,11 +65,12 @@ fn main() {
             i_val, learning_rate, weight_decay
         );
 
+        let normal = Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap();
         let mut network = TwoLayerNet::new(
             input_layer_size,
             hidden_layer_size,
             output_layer_size,
-            &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+            || normal.sample(&mut rng),
         );
         let sgd_factory = SGDFactory::new(learning_rate);
         let mut optimizers = create_optimizers(&network, &sgd_factory);
@@ -103,11 +104,12 @@ fn main() {
     // 一番良かった値を用いて本学習
     let learning_rate = val_results[0].1;
     let weight_decay = val_results[0].2;
+    let normal = Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap();
     let mut network = TwoLayerNet::new(
         input_layer_size,
         hidden_layer_size,
         output_layer_size,
-        &Normal::new(0.0, 1.0 / (input_layer_size as f64)).unwrap(),
+        || normal.sample(&mut rng),
     );
     let sgd_factory = SGDFactory::new(learning_rate);
     let mut optimizers = create_optimizers(&network, &sgd_factory);
